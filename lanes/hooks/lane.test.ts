@@ -42,6 +42,27 @@ test('a task that arrives mid-turn waits behind the current one, and the reply m
   expect(state(files).next).toEqual([])
 })
 
+test('a claude -p started inside the lane (a summary hook, say) leaves the lane state alone', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: false })
+  await $.turn.start({ turnId: 't1', text: 'Summarise this session: ... [T11] audit the boards ...' } as never)
+
+  expect(files['C:/work/demo/.claude/lanes/state/low.json']).toBeUndefined()
+})
+
+test('the plugin reloading inside a busy lane keeps its task', async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'busy', since: 5, sessionId: 'lane-1', task: '[T10] audit', last: '', turns: 3, tokens: { input: 1, output: 2, cacheRead: 3 } }),
+  }
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+
+  expect(state(files).state).toBe('busy')
+  expect(state(files).task).toBe('[T10] audit')
+  expect(state(files).turns).toBe(3)
+})
+
 test('a turn raised by a background job finishing keeps the current task', async ($, on) => {
   const files: Record<string, string> = {}
   ground(on, files)

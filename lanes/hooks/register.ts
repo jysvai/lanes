@@ -62,6 +62,7 @@ let home = ''
 let pluginRoot = ''
 let isWindows = true
 let tier: Tier | undefined
+let isMain = false
 let me: LaneState | undefined
 let pending = ''
 let progress = { text: '', at: 0 }
@@ -437,17 +438,22 @@ async function markOff($: EngineInterface) {
 
 async function startLane($: EngineInterface, t: Tier) {
   tier = t
-  me = {
-    tier: t,
-    state: 'idle',
-    since: await $.clock.now(),
-    model: await $.session.model(),
-    sessionId: await $.session.id(),
-    task: '',
-    last: '',
-    turns: 0,
-    tokens: { input: 0, output: 0, cacheRead: 0 },
-  }
+  const sessionId = await $.session.id()
+  const saved = await readLane($, t)
+  // The plugin reloading inside a running lane keeps what the lane is doing.
+  me = saved !== undefined && saved.sessionId === sessionId && saved.state !== 'off'
+    ? saved
+    : {
+        tier: t,
+        state: 'idle',
+        since: await $.clock.now(),
+        model: await $.session.model(),
+        sessionId,
+        task: '',
+        last: '',
+        turns: 0,
+        tokens: { input: 0, output: 0, cacheRead: 0 },
+      }
   await save($)
   $.ui.status(`${laneName(t)} lane · ${cfg[t].model}, effort ${cfg[t].effort} · replies go to whoever sent the task`)
   armIdle($)
@@ -513,10 +519,16 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     await setup($, e.cwd)
+    // Only the interactive session is the lane or the main session. A `claude -p`
+    // that another plugin's hook starts inherits CLAUDE_LANE from the lane's
+    // shell, and must not write the lane's state.
     const role = await $.env.get('CLAUDE_LANE')
-    if (role === 'mid' || role === 'low') {
+    if (!e.isInteractive) {
+      // neither
+    } else if (role === 'mid' || role === 'low') {
       await startLane($, role)
-    } else if (e.isInteractive) {
+    } else {
+      isMain = true
       await startMain($)
     }
 
@@ -525,7 +537,7 @@ export const register: Register = (on, options) => {
 
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
-    if (tier !== undefined || dir === '') return composed
+    if (!isMain) return composed
 
     return { sections: [...composed.sections, { id: 'lanes:policy', text: policy(), scope: 'session' as const }] }
   })
