@@ -19,6 +19,7 @@ function ground(on: On, files: Record<string, string>) {
   on('session.id', () => ({ value: 'lane-1' }))
   on('ui.status', () => ({ value: undefined }))
   on('turn.start', ($, e) => e as never)
+  on('turn.complete', () => ({ text: '' }) as never)
   on('session.receive', ($, e) => ({ text: e.text }) as never)
   on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
 }
@@ -39,6 +40,18 @@ test('a task that arrives mid-turn waits behind the current one, and the reply m
 
   expect(state(files).task.startsWith('[T8]')).toBe(true)
   expect(state(files).next).toEqual([])
+})
+
+test('a turn raised by a background job finishing keeps the current task', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T6] run the regression' } as never)
+  await $.turn.complete({ turnId: 't1', answer: 'step 4 is running in the background', toolUses: [], usage: null } as never)
+  await $.turn.start({ turnId: 't2', text: '<task-notification>\n<task-id>b1</task-id>' } as never)
+
+  expect(state(files).task).toBe('[T6] run the regression')
+  expect(state(files).state).toBe('busy')
 })
 
 test('a progress ping or a sub-task send leaves the current task alone', async ($, on) => {

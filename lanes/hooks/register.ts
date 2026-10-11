@@ -379,7 +379,9 @@ async function markBusy($: EngineInterface, from: string) {
   idleTimer?.cancel()
   me.state = 'busy'
   me.since = await $.clock.now()
-  me.task = pending || taskLine(from) || '(continuing)'
+  // A turn raised by something other than a task (a background job finishing,
+  // a reply from the other lane) carries on with the current task.
+  me.task = pending || (isTask(from) || !isTask(me.task) ? taskLine(from) : me.task) || '(continuing)'
   me.next = []
   pending = ''
   await save($)
@@ -411,14 +413,14 @@ async function noteReply($: EngineInterface, message: unknown) {
   await save($)
 }
 
-async function markIdle($: EngineInterface, answer: string, usage: Usage | undefined) {
+async function markIdle($: EngineInterface, answer: string, usage: Usage | null | undefined) {
   if (me === undefined) return
   me.state = 'idle'
   me.since = await $.clock.now()
   me.next = []
   me.last = firstLine(answer)
   me.turns += 1
-  if (usage !== undefined) {
+  if (usage) {
     me.tokens.input += usage.input_tokens
     me.tokens.output += usage.output_tokens
     me.tokens.cacheRead += usage.cache_read_input_tokens
