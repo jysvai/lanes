@@ -240,7 +240,8 @@ async function report($: EngineInterface) {
   )
   let recent = ''
   try {
-    const files = (await $.fs.list(`${dir}/out`)).filter(f => f.kind === 'file')
+    // the task reports only; screenshots and scratch files a lane leaves next to them would crowd them out
+    const files = (await $.fs.list(`${dir}/out`)).filter(f => f.kind === 'file' && /^[A-Z]\d+[a-z]?\.md$/.test(f.name))
     const newest = [...files].sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 5)
     if (newest.length > 0) recent = `\nrecent reports (.claude/lanes/out): ${newest.map(f => f.name).join(', ')}`
   } catch {

@@ -14,7 +14,9 @@ function ground(on: On, sent: { to?: unknown; text?: string }, files: Record<str
   on('fs.list', ($, e) => ({
     value: key(e.path).endsWith('/sessions')
       ? [{ name: '11.json', kind: 'file', size: 1, mtimeMs: 0, isLink: false }, { name: '22.json', kind: 'file', size: 1, mtimeMs: 0, isLink: false }]
-      : [],
+      : key(e.path).endsWith('/lanes/out')
+        ? ['T3.md', 'T3-phone.png', 'T4-src-c01.json', 'T4.md', 'T4-err.log'].map((name, i) => ({ name, kind: 'file' as const, size: 1, mtimeMs: i, isLink: false }))
+        : [],
   }))
   on('fs.read', ($, e) => (key(e.path) in files ? { value: files[key(e.path)] ?? '' } : { deny: 'no such file' }))
   on('fs.write', ($, e) => {
@@ -107,4 +109,12 @@ test('the next task gets the next number', async ($, on) => {
   const ran = await $.command.run({ command: 'lane', args: 'low second' } as never)
 
   expect(ran.text).toBe('T2 → demo-low')
+})
+
+test('/lane status names the task reports, not the screenshots and scratch files next to them', async ($, on) => {
+  ground(on, {})
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'status' } as never)
+
+  expect(ran.text).toContain('recent reports (.claude/lanes/out): T4.md, T3.md\n')
 })
