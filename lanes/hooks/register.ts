@@ -41,13 +41,34 @@ type LaneState = {
 
 type Peer = { pid: number; name: string; status?: string; sessionId?: string }
 
-type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens: number }
+type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens?: number }
+
+type Role = Tier | 'main'
+type Spend = { calls: number; unpriced: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
+/** one role's spend in this project per local day ("2026-10-11"), in dollars at API list prices */
+type SpendLog = Record<string, Spend>
+type Rate = readonly [input: number, cacheWrite: number, cacheRead: number, output: number]
 
 const TIERS: Tier[] = ['mid', 'low']
+const ROLES: Role[] = ['main', ...TIERS]
+
+// $ per million tokens at API list prices (platform.claude.com/docs/en/about-claude/pricing): input,
+// 1-hour cache write (the cache Claude Code writes), cache read, output. First match wins, so a
+// version comes before the family it starts with. Haiku 5.5 costs more on a prompt over 100k tokens.
+const PRICES: [RegExp, Rate, Rate?][] = [
+  [/fable-5-1|mythos-5-1/, [10, 20, 0.25, 50]],
+  [/fable-5|mythos-5/, [10, 20, 1, 50]],
+  [/opus-5-5/, [4, 8, 0.2, 20]],
+  [/opus-5|opus-4-8/, [5, 10, 0.5, 25]],
+  [/sonnet-5-5/, [2, 4, 0.1, 10]],
+  [/sonnet-5/, [2, 4, 0.2, 10]],
+  [/haiku-5-5/, [0.1, 0.2, 0.01, 0.5], [0.5, 1, 0.05, 2.5]],
+  [/haiku-4-5/, [1, 2, 0.1, 5]],
+]
 const RANK: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 const PROGRESS_MS = 15 * 60_000
 const POLL_MS = 5000
-const USAGE = 'usage: /lane <request> · /lane status · /lane start|stop [mid|low|all] · /lane mid <task> · /lane low <task>'
+const USAGE = 'usage: /lane <request> · /lane status · /lane usage [all] · /lane start|stop [mid|low|all] · /lane mid <task> · /lane low <task>'
 
 // The module's own variables start over on a reload; session.start fills them again.
 let cfg: Config = {
@@ -70,6 +91,7 @@ let pending = ''
 let progress = { text: '', at: 0 }
 let mainName = ''
 let idleTimer: Timer | undefined
+let spend: SpendLog = {}
 
 const text = (v: unknown, fallback: string) => (typeof v === 'string' ? v.trim() : fallback)
 const effortOf = (v: unknown, fallback: Effort): Effort => (RANK.includes(v as Effort) ? (v as Effort) : fallback)
@@ -108,6 +130,102 @@ const ago = (ms: number) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math
 
 const stateFile = (t: Tier) => `${dir}/state/${t}.json`
 const queueFile = (t: Tier) => `${dir}/state/${t}.queue.json`
+const spendFile = (r: Role) => `${dir}/state/${r}.spend.json`
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const dayOf = (ms: number) => {
+  const d = new Date(ms)
+
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+// What one request cost on a model, or undefined for a model without a known price.
+function price(model: string, u: Usage): number | undefined {
+  const hit = PRICES.find(([re]) => re.test(model))
+  if (hit === undefined) return undefined
+  const write = u.cache_creation_input_tokens ?? 0
+  const prompt = u.input_tokens + write + u.cache_read_input_tokens
+  const [input, cacheWrite, cacheRead, output] = (prompt > 100_000 ? hit[2] : undefined) ?? hit[1]
+
+  return (u.input_tokens * input + write * cacheWrite + u.cache_read_input_tokens * cacheRead + u.output_tokens * output) / 1e6
+}
+
+const noSpend = (): Spend => ({ calls: 0, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0, onMain: 0 })
+
+function addSpend(a: Spend, b: Spend): Spend {
+  return {
+    calls: a.calls + b.calls,
+    unpriced: a.unpriced + b.unpriced,
+    input: a.input + b.input,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    cacheRead: a.cacheRead + b.cacheRead,
+    output: a.output + b.output,
+    cost: a.cost + b.cost,
+    onMain: a.onMain + b.onMain,
+  }
+}
+
+async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
+  try {
+    return JSON.parse(String(await $.fs.read(spendFile(r)))) as SpendLog
+  } catch {
+    return {}
+  }
+}
+
+// Every model request of this session (subagents included) adds to its role's log for the day,
+// with what the same tokens would have cost on the main model.
+async function record($: EngineInterface, usage: (Usage & { model: string }) | null | undefined) {
+  const role: Role | undefined = tier ?? (isMain ? 'main' : undefined)
+  if (role === undefined || !usage) return
+  if (me !== undefined) {
+    me.tokens.input += usage.input_tokens
+    me.tokens.output += usage.output_tokens
+    me.tokens.cacheRead += usage.cache_read_input_tokens
+  }
+  // a main session keeps a log only in a project that has used the lanes
+  if (role === 'main' && !(await $.fs.exists(`${dir}/state`))) return
+  const day = dayOf(await $.clock.now())
+  const cost = price(usage.model, usage)
+  const s = (spend[day] ??= noSpend())
+  s.calls += 1
+  s.unpriced += cost === undefined ? 1 : 0
+  s.input += usage.input_tokens
+  s.cacheWrite += usage.cache_creation_input_tokens ?? 0
+  s.cacheRead += usage.cache_read_input_tokens
+  s.output += usage.output_tokens
+  s.cost += cost ?? 0
+  s.onMain += price(cfg.main.model, usage) ?? cost ?? 0
+  await $.fs.write(spendFile(role), JSON.stringify(spend, null, 1))
+}
+
+async function spendReport($: EngineInterface, all: boolean) {
+  const today = dayOf(await $.clock.now())
+  const logs = await Promise.all(ROLES.map(async r => [r, await readSpend($, r)] as const))
+  const days = [...new Set(logs.flatMap(([, log]) => Object.keys(log)))].sort()
+  const of = (log: SpendLog) => (all ? Object.values(log) : [log[today] ?? noSpend()]).reduce(addSpend, noSpend())
+  const by = new Map(logs.map(([r, log]) => [r, of(log)]))
+  const lanes = TIERS.map(t => by.get(t) ?? noSpend()).reduce(addSpend, noSpend())
+  const main = by.get('main') ?? noSpend()
+  const total = addSpend(main, lanes)
+  if (total.calls === 0) return 'No spend logged yet. Every model request of the main and lane sessions in this project is logged from now on.'
+  const $$ = (n: number) => `$${n.toFixed(2)}`
+  const short = (r: Role) => cfg[r].model.replace(/^claude-|\[1m\]$/g, '')
+  const saved = (s: Spend) => (s.onMain > s.cost ? `  saved ${$$(s.onMain - s.cost)} (${Math.round((1 - s.cost / s.onMain) * 100)}%)` : '')
+  const row = (name: string, model: string, s: Spend, vs: boolean) =>
+    `  ${name.padEnd(6)}${model.padEnd(14)}${String(s.calls).padStart(6)} calls ${$$(s.cost).padStart(9)}${vs ? `   on ${short('main')} ${$$(s.onMain)}${saved(s)}` : ''}`
+  const unpriced = total.unpriced > 0 ? `\n${total.unpriced} requests were on a model without a known price and count as $0.` : ''
+
+  return [
+    `lane spend ${all ? `${days[0]} to ${days[days.length - 1]}` : `today (${today})`}, at API list prices`,
+    row('main', short('main'), main, false),
+    ...TIERS.map(t => row(t, short(t), by.get(t) ?? noSpend(), true)),
+    row('lanes', '', lanes, true),
+    row('all', '', total, true),
+    `Every model request of the main and lane sessions here, subagents included, priced per request with 1-hour cache writes`,
+    `(platform.claude.com/docs/en/about-claude/pricing). A plan isn't billed per token, but its usage limits weigh the models much the same way.${unpriced}`,
+  ].join('\n')
+}
 
 // The effort a main-loop request should carry, or undefined to leave it: lanes run
 // at their fixed effort, an Opus or Fable main session never below its floor.
@@ -248,7 +366,13 @@ async function report($: EngineInterface) {
     // no reports yet
   }
 
-  return `${rows.join('\n')}${recent}\nT<n> is task number n in this project; its full report is .claude/lanes/out/T<n>.md`
+  const today = dayOf(now)
+  const lanes = (await Promise.all(TIERS.map(async t => (await readSpend($, t))[today] ?? noSpend()))).reduce(addSpend, noSpend())
+  const spent = lanes.calls > 0
+    ? `\nlanes today: $${lanes.cost.toFixed(2)}, on ${cfg.main.model.replace(/^claude-|\[1m\]$/g, '')} it would have been $${lanes.onMain.toFixed(2)} (/lane usage)`
+    : ''
+
+  return `${rows.join('\n')}${recent}${spent}\nT<n> is task number n in this project; its full report is .claude/lanes/out/T<n>.md`
 }
 
 async function runScript($: EngineInterface, verb: 'start' | 'stop', which: Tier | 'all') {
@@ -443,18 +567,13 @@ async function noteReply($: EngineInterface, message: unknown) {
   await save($)
 }
 
-async function markIdle($: EngineInterface, answer: string, usage: Usage | null | undefined) {
+async function markIdle($: EngineInterface, answer: string) {
   if (me === undefined) return
   me.state = 'idle'
   me.since = await $.clock.now()
   me.next = []
   me.last = firstLine(answer)
   me.turns += 1
-  if (usage) {
-    me.tokens.input += usage.input_tokens
-    me.tokens.output += usage.output_tokens
-    me.tokens.cacheRead += usage.cache_read_input_tokens
-  }
   await save($)
   armIdle($)
 }
@@ -555,9 +674,11 @@ export const register: Register = (on, options) => {
     if (!e.isInteractive) {
       // neither
     } else if (role === 'mid' || role === 'low') {
+      spend = await readSpend($, role)
       await startLane($, role)
     } else {
       isMain = true
+      spend = await readSpend($, 'main')
       await startMain($)
     }
 
@@ -598,12 +719,14 @@ export const register: Register = (on, options) => {
 
   on('turn.step', async function* ($, e, next) {
     const effort = stepEffort(e.model, e.effort, e.agentId)
+    const done = yield* next(effort === undefined ? e : { ...e, effort })
+    await record($, done.usage)
 
-    return yield* next(effort === undefined ? e : { ...e, effort })
+    return done
   })
 
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId === undefined) await markIdle($, e.answer, e.usage)
+    if (e.agentId === undefined) await markIdle($, e.answer)
 
     return next(e)
   })
@@ -642,6 +765,7 @@ export const register: Register = (on, options) => {
     const rest = args.slice(verb.length).trim()
 
     if (verb === 'status') return { text: await report($) }
+    if (verb === 'usage' && /^(all|today)?$/.test(rest)) return { text: await spendReport($, rest === 'all') }
     if (verb === 'help') return { text: USAGE }
     if ((verb === 'start' || verb === 'stop') && /^(mid|low|all)?$/.test(rest)) {
       return { text: await runScript($, verb, rest === 'mid' || rest === 'low' ? rest : 'all') }
