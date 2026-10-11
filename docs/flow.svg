@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 880 400" width="880" height="400" role="img" aria-label="lanes: 메인이 mid·low 레인에 작업을 넘기고, 짧은 답만 돌려받으며, 상세 보고서는 파일로 남는다">
+  <style>
+    .bg { fill: #f6f8fa; }
+    .box { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+    .t { font: 600 17px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .s { font: 13.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .m { font: 12.5px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .lab { font: 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .wire { fill: none; stroke: #8c959f; stroke-width: 1.6; }
+    .dash { stroke-dasharray: 5 5; }
+    .main { fill: #0969da; } .mid { fill: #8250df; } .low { fill: #1a7f37; } .you { fill: #bf3989; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; } .box { fill: #161b22; stroke: #30363d; }
+      .t, .m { fill: #e6edf3; } .s, .lab { fill: #9198a1; } .wire { stroke: #6e7681; }
+      .main { fill: #4493f8; } .mid { fill: #ab7df8; } .low { fill: #3fb950; } .you { fill: #db61a2; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8c959f"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="880" height="400" rx="14"/>
+
+  <!-- boxes -->
+  <rect class="box" x="22" y="150" width="168" height="74" rx="10"/>
+  <rect class="you" x="22" y="150" width="6" height="74" rx="3"/>
+  <text class="t" x="40" y="178">나</text>
+  <text class="m" x="40" y="204">/lane 할 일</text>
+
+  <rect class="box" x="262" y="122" width="244" height="130" rx="10"/>
+  <rect class="main" x="262" y="122" width="6" height="130" rx="3"/>
+  <text class="t" x="282" y="150">main</text>
+  <text class="s" x="282" y="176">Opus 5.5 (→ Fable 5.1) · xhigh</text>
+  <text class="s" x="282" y="200">코드 수정 · 커밋 · 배포는 메인만</text>
+  <text class="s" x="282" y="224">레인에게는 짧은 결론만 받음</text>
+
+  <rect class="box" x="618" y="30" width="240" height="112" rx="10"/>
+  <rect class="mid" x="618" y="30" width="6" height="112" rx="3"/>
+  <text class="t" x="638" y="58">mid 레인</text>
+  <text class="s" x="638" y="84">Sonnet 5.5 (→ Opus 5.5) · high</text>
+  <text class="s" x="638" y="108">테스트 · 검증 · 리뷰</text>
+
+  <rect class="box" x="618" y="248" width="240" height="112" rx="10"/>
+  <rect class="low" x="618" y="248" width="6" height="112" rx="3"/>
+  <text class="t" x="638" y="276">low 레인</text>
+  <text class="s" x="638" y="302">Haiku 5.5 · medium</text>
+  <text class="s" x="638" y="326">검색 · 스크립트 · 크롤링</text>
+
+  <rect class="box" x="262" y="300" width="244" height="68" rx="10"/>
+  <text class="m" x="282" y="328">.claude/lanes/out/T2.md</text>
+  <text class="s" x="282" y="352">상세 보고서 · 필요할 때만 열람</text>
+
+  <!-- wires -->
+  <path id="w-you" class="wire" d="M190 187 L258 187" marker-end="url(#a)"/>
+  <path id="w-mid" class="wire" d="M506 150 C 560 150, 570 86, 614 86" marker-end="url(#a)"/>
+  <path id="w-low" class="wire" d="M506 214 C 560 214, 570 304, 614 304" marker-end="url(#a)"/>
+  <path id="w-sub" class="wire dash" d="M738 142 L738 244" marker-end="url(#a)"/>
+  <path id="w-back" class="wire" d="M618 120 C 572 120, 566 182, 510 182" marker-end="url(#a)"/>
+  <path id="w-file" class="wire dash" d="M618 330 C 580 330, 560 334, 510 334" marker-end="url(#a)"/>
+
+  <text class="lab" x="530" y="268">T1 조사</text>
+  <text class="lab" x="530" y="112">T2 검증</text>
+  <text class="lab" x="748" y="200">T2a 단순 작업</text>
+  <text class="lab" x="516" y="200">[T2 PASS] 4줄</text>
+  <text class="lab" x="536" y="356">보고서</text>
+
+  <!-- moving tasks: all on one 8s loop; each dot waits hidden at its start, runs, then hides -->
+  <g>
+    <circle r="6" class="you" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.02;0.12;1"><mpath xlink:href="#w-you"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.02;0.13"/>
+    </circle>
+    <circle r="6" class="low" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.15;0.29;1"><mpath xlink:href="#w-low"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.15;0.30"/>
+    </circle>
+    <circle r="6" class="mid" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.20;0.34;1"><mpath xlink:href="#w-mid"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.20;0.35"/>
+    </circle>
+    <circle r="5" class="mid" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.40;0.52;1"><mpath xlink:href="#w-sub"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.40;0.53"/>
+    </circle>
+    <circle r="5" class="low" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.56;0.68;1"><mpath xlink:href="#w-file"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.56;0.69"/>
+    </circle>
+    <circle r="6" class="mid" opacity="0">
+      <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.72;0.86;1"><mpath xlink:href="#w-back"/></animateMotion>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.72;0.87"/>
+    </circle>
+  </g>
+</svg>

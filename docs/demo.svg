@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 340" width="780" height="340" role="img" aria-label="터미널 재생: /lane 한 줄로 요청하면 메인이 haiku에게 원인 찾기(T1)를, sonnet에게 검증(T2)을 넘기고, 아래 상태줄이 작업 상태를 보여준다">
+  <style>
+    .win { fill: #0d1117; }
+    .bar { fill: #161b22; }
+    .line { fill: #30363d; }
+    text { font: 14px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "D2Coding", "Malgun Gothic", monospace; fill: #e6edf3; white-space: pre; }
+    .dim { fill: #8b949e; }
+    .ok { fill: #3fb950; }
+    .mid { fill: #ab7df8; }
+    .low { fill: #3fb950; }
+    .you { fill: #db61a2; }
+    .main { fill: #4493f8; }
+    .st { font-size: 13px; }
+    .hint { font: 12px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; fill: #8b949e; }
+  </style>
+  <defs>
+    <clipPath id="type"><rect x="0" y="40" height="40" width="0">
+      <animate attributeName="width" dur="14s" repeatCount="indefinite" values="0;0;780;780" keyTimes="0;0.03;0.14;1"/>
+    </rect></clipPath>
+  </defs>
+
+  <rect class="win" width="780" height="340" rx="12"/>
+  <rect class="bar" width="780" height="34" rx="12"/>
+  <rect class="bar" y="22" width="780" height="12"/>
+  <circle cx="22" cy="17" r="6" fill="#ff5f57"/><circle cx="42" cy="17" r="6" fill="#febc2e"/><circle cx="62" cy="17" r="6" fill="#28c840"/>
+  <text class="dim" x="390" y="22" text-anchor="middle" style="font-size:12px">claude — my-app</text>
+
+  <!-- the request, typed -->
+  <text x="22" y="66" clip-path="url(#type)"><tspan class="you">❯</tspan> /lane 로그인 버그 고치고 테스트까지 돌려줘</text>
+
+  <!-- what follows, one line at a time (14s loop) -->
+  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.18"/>
+    <text x="22" y="100"><tspan class="main">●</tspan> 원인 위치부터 찾을게요   <tspan class="low">T1 → haiku</tspan></text>
+  </g>
+  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.36"/>
+    <text x="22" y="128" class="dim">  ← [T1 DONE] auth/session.ts:88 만료 시각 비교가 반대</text>
+  </g>
+  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.45"/>
+    <text x="22" y="156"><tspan class="main">●</tspan> session.ts:88 수정했어요. 검증 넘길게요   <tspan class="mid">T2 → sonnet</tspan></text>
+  </g>
+  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/>
+    <text x="22" y="184" class="dim">  ← [T2 PASS] 테스트 42/42 · 회귀 없음</text>
+  </g>
+  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.74"/>
+    <text x="22" y="212"><tspan class="ok">✓</tspan> 커밋 a1b2c3d · 로그인 세션 만료 비교 수정</text>
+  </g>
+
+  <!-- status line -->
+  <rect class="line" x="16" y="262" width="748" height="1"/>
+  <g class="st">
+    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="1;0" keyTimes="0;0.18"/><tspan class="dim">lanes</tspan>  sonnet off · haiku off</text>
+    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.18;0.36"/><tspan class="dim">lanes</tspan>  sonnet off · <tspan class="low">haiku ● T1 40s</tspan></text>
+    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.36;0.45"/><tspan class="dim">lanes</tspan>  sonnet off · haiku ○</text>
+    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.45;0.66"/><tspan class="dim">lanes</tspan>  <tspan class="mid">sonnet ● T2 1m</tspan> · haiku ○</text>
+    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/><tspan class="dim">lanes</tspan>  sonnet ○ · haiku ○</text>
+  </g>
+  <text class="hint" x="22" y="318">● 작업 중   ○ 대기   off 꺼짐   T1 = 이 프로젝트의 1번 작업 (보고서 .claude/lanes/out/T1.md)</text>
+</svg>
