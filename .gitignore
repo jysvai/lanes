@@ -1,0 +1,4 @@
+node_modules/
+.claude-plugin/types/
+lanes/.claude-plugin/types/
+lanes/.claude-plugin/tsconfig.json

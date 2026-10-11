@@ -1,0 +1,78 @@
+{
+  "name": "lanes",
+  "version": "0.1.0",
+  "description": "On-demand lane sessions beside your main Claude Code session: a mid lane for tests and verification, a low lane for search, scripts and crawling. Status line, /lane, and tools the main model calls.",
+  "author": { "name": "jysvai" },
+  "userConfig": {
+    "main_model": {
+      "type": "string",
+      "title": "Main model",
+      "description": "The model the main session is meant to run (used by bin/claude-main and to pick which sessions get the effort floor).",
+      "default": "claude-opus-5-5[1m]"
+    },
+    "main_fallback": {
+      "type": "string",
+      "title": "Main fallback model",
+      "description": "Second choice for the main session when the main model is overloaded (bin/claude-main passes it as --fallback-model).",
+      "default": "claude-fable-5-1"
+    },
+    "main_effort": {
+      "type": "string",
+      "title": "Main effort floor",
+      "description": "The main session never runs below this effort.",
+      "default": "xhigh",
+      "options": ["low", "medium", "high", "xhigh", "max"]
+    },
+    "mid_model": {
+      "type": "string",
+      "title": "Mid lane model",
+      "description": "Tests, verification, reviews of main's changes.",
+      "default": "claude-sonnet-5-5"
+    },
+    "mid_fallback": {
+      "type": "string",
+      "title": "Mid lane fallback model",
+      "description": "Second choice for the mid lane; empty for none.",
+      "default": "claude-opus-5-5"
+    },
+    "mid_effort": {
+      "type": "string",
+      "title": "Mid lane effort",
+      "description": "Fixed effort for the mid lane.",
+      "default": "high",
+      "options": ["low", "medium", "high", "xhigh", "max"]
+    },
+    "low_model": {
+      "type": "string",
+      "title": "Low lane model",
+      "description": "Search, listing, scripts, crawling, notes.",
+      "default": "claude-haiku-5-5"
+    },
+    "low_fallback": {
+      "type": "string",
+      "title": "Low lane fallback model",
+      "description": "Second choice for the low lane; empty for none.",
+      "default": ""
+    },
+    "low_effort": {
+      "type": "string",
+      "title": "Low lane effort",
+      "description": "Fixed effort for the low lane.",
+      "default": "medium",
+      "options": ["low", "medium", "high", "xhigh", "max"]
+    },
+    "launch": {
+      "type": "string",
+      "title": "How lanes open",
+      "description": "window: a terminal window per lane (Windows, macOS). background: claude --bg, watch with claude attach <name>.",
+      "default": "window",
+      "options": ["window", "background"]
+    },
+    "idle_minutes": {
+      "type": "number",
+      "title": "Close an idle lane after (minutes)",
+      "description": "A lane with nothing to do closes itself after this long; 0 keeps it open.",
+      "default": 20
+    }
+  }
+}

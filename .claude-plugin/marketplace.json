@@ -1,0 +1,12 @@
+{
+  "name": "claude-mod",
+  "owner": { "name": "jysvai" },
+  "metadata": { "description": "Claude Code mods by jysvai" },
+  "plugins": [
+    {
+      "name": "lanes",
+      "source": "./lanes",
+      "description": "On-demand mid/low lane sessions beside the main Claude Code session"
+    }
+  ]
+}
