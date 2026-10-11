@@ -43,7 +43,7 @@ const TIERS: Tier[] = ['mid', 'low']
 const RANK: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 const PROGRESS_MS = 15 * 60_000
 const POLL_MS = 5000
-const USAGE = 'usage: /lane [status] · /lane start|stop [mid|low|all] · /lane mid <task> · /lane low <task>'
+const USAGE = 'usage: /lane <request> · /lane status · /lane start|stop [mid|low|all] · /lane mid <task> · /lane low <task>'
 
 // The module's own variables start over on a reload; session.start fills them again.
 let cfg: Config = {
@@ -112,6 +112,24 @@ function stepEffort(model: string, effort: unknown, agentId: string | undefined)
   if (RANK.indexOf(effort as Effort) >= RANK.indexOf(cfg.main.effort)) return undefined
 
   return cfg.main.effort
+}
+
+// What "/lane <request>" hands the main model: the request, and how to run it
+// across the lanes until it is done and verified.
+function orchestration(request: string) {
+  return [
+    `Lane request: ${request}`,
+    '',
+    'Run this request with the lanes, start to finish, without stopping to ask unless a decision is truly mine:',
+    `1. Split it into steps. Searching, listing, running scripts and counting, crawling: ${laneName('low')}. Tests, verifying your changes, reviews, fact checks: ${laneName('mid')}. Code and content edits, commits, deploys: you.`,
+    '2. Send independent lane work first with mcp__lanes__send so it runs while you edit. Give each task its goal, the files or commands, and what counts as done.',
+    '3. When a lane answers, act on it: fix what failed, then send the fix to the mid lane to verify. Open .claude/lanes/out/<id>.md only when the short answer is not enough.',
+    '4. Finish when the request is done and verified. Tell me what changed, what the lanes checked, and what is still open.',
+  ].join('\n')
+}
+
+async function submitRequest($: EngineInterface, request: string) {
+  await $.prompt.submit({ text: orchestration(request), asUser: true })
 }
 
 function policy() {
@@ -374,8 +392,8 @@ async function startLane($: EngineInterface, t: Tier) {
 async function startMain($: EngineInterface) {
   await $.command.register({
     name: 'lane',
-    description: 'Lane sessions: status, start/stop, or hand a task to the mid or low lane',
-    argumentHint: '[status | start | stop | mid <task> | low <task>]',
+    description: 'Run a request across the lane sessions, or: status, start/stop, mid <task>, low <task>',
+    argumentHint: '[<request> | status | start | stop | mid <task> | low <task>]',
     immediate: true,
   })
   const lane = { type: 'string', enum: ['mid', 'low'], description: 'mid: tests, verification, reviews. low: search, scripts, crawling, notes.' }
@@ -510,13 +528,16 @@ export const register: Register = (on, options) => {
     const rest = args.slice(verb.length).trim()
 
     if (verb === 'status') return { text: await report($) }
-    if (verb === 'start' || verb === 'stop') {
+    if (verb === 'help') return { text: USAGE }
+    if ((verb === 'start' || verb === 'stop') && /^(mid|low|all)?$/.test(rest)) {
       return { text: await runScript($, verb, rest === 'mid' || rest === 'low' ? rest : 'all') }
     }
-    if (verb === 'mid' || verb === 'low') {
-      return { text: rest === '' ? `usage: /lane ${verb} <task>` : await dispatch($, verb, rest) }
-    }
+    if ((verb === 'mid' || verb === 'low') && rest !== '') return { text: await dispatch($, verb, rest) }
 
-    return { text: USAGE }
+    // Anything else is a request for the main model to run across the lanes,
+    // submitted once this command has returned (a command can't wait on a turn).
+    $.clock.after(50, () => void submitRequest($, args))
+
+    return { text: 'Handed to the main session to run across the lanes.' }
   })
 }
