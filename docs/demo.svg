@@ -14,7 +14,7 @@
     .hint { font: 12px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; fill: #8b949e; }
   </style>
   <defs>
-    <clipPath id="type"><rect x="0" y="40" height="40" width="0">
+    <clipPath id="type"><rect x="0" y="40" height="40" width="780">
       <animate attributeName="width" dur="14s" repeatCount="indefinite" values="0;0;780;780" keyTimes="0;0.03;0.14;1"/>
     </rect></clipPath>
   </defs>
@@ -29,19 +29,19 @@
   <text x="22" y="66" clip-path="url(#type)"><tspan class="you">❯</tspan> /lane 로그인 버그 고치고 테스트까지 돌려줘</text>
 
   <!-- what follows, one line at a time (14s loop) -->
-  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.18"/>
+  <g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.18"/>
     <text x="22" y="100"><tspan class="main">●</tspan> 원인 위치부터 찾을게요   <tspan class="low">T1 → haiku</tspan></text>
   </g>
-  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.36"/>
+  <g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.36"/>
     <text x="22" y="128" class="dim">  ← [T1 DONE] auth/session.ts:88 만료 시각 비교가 반대</text>
   </g>
-  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.45"/>
+  <g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.45"/>
     <text x="22" y="156"><tspan class="main">●</tspan> session.ts:88 수정했어요. 검증 넘길게요   <tspan class="mid">T2 → sonnet</tspan></text>
   </g>
-  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/>
+  <g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/>
     <text x="22" y="184" class="dim">  ← [T2 PASS] 테스트 42/42 · 회귀 없음</text>
   </g>
-  <g opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.74"/>
+  <g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.74"/>
     <text x="22" y="212"><tspan class="ok">✓</tspan> 커밋 a1b2c3d · 로그인 세션 만료 비교 수정</text>
   </g>
 
@@ -51,7 +51,7 @@
     <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="1;0" keyTimes="0;0.18"/><tspan class="dim">lanes</tspan>  sonnet off · haiku off</text>
     <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.18;0.36"/><tspan class="dim">lanes</tspan>  sonnet off · <tspan class="low">haiku ● T1 40s</tspan></text>
     <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.36;0.45"/><tspan class="dim">lanes</tspan>  sonnet off · haiku ○</text>
-    <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.45;0.66"/><tspan class="dim">lanes</tspan>  <tspan class="mid">sonnet ● T2 1m</tspan> · haiku ○</text>
+    <text x="22" y="290"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.45;0.66"/><tspan class="dim">lanes</tspan>  <tspan class="mid">sonnet ● T2 1m</tspan> · haiku ○</text>
     <text x="22" y="290" opacity="0"><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/><tspan class="dim">lanes</tspan>  sonnet ○ · haiku ○</text>
   </g>
   <text class="hint" x="22" y="318">● 작업 중   ○ 대기   off 꺼짐   T1 = 이 프로젝트의 1번 작업 (보고서 .claude/lanes/out/T1.md)</text>
