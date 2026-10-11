@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" width="880" height="280" role="img" aria-label="프로젝트 1 · 웹 게임: main이 일하는 동안 레인도 일했다. main이 일한 154분 옆에서 레인이 265분 일했어요 · 레인 작업 29건 (눈금이 작업이 들어온 때) · 시각은 KST">
+  <style>
+    .bg { fill: #f6f8fa; }
+    .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+    .h { font: 700 19px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .hero { font: 700 26px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .t { font: 600 15px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .s { font: 13px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .m { font: 13px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .mb { font: 700 13px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .w { font: 600 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #ffffff; }
+    .main { fill: #0a7ea4; } .mid { fill: #8250df; } .low { fill: #1a7f37; }
+    .opus { fill: #8c959f; opacity: .55; }
+    .grid { stroke: #d0d7de; stroke-width: 1; }
+    .save { fill: none; stroke: #1f2328; stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .ok { fill: none; stroke: #1a7f37; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .idle { fill: url(#hatch); }
+    .hl { stroke: #8c959f; stroke-width: 1; }
+    .tick { stroke: #57606a; stroke-width: 1.5; }
+    .tid { font: 11px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #57606a; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; } .card { fill: #161b22; stroke: #30363d; }
+      .h, .hero, .t, .m, .mb { fill: #e6edf3; } .s { fill: #9198a1; }
+      .main { fill: #1b8fb8; } .mid { fill: #a371f7; } .low { fill: #2ea043; }
+      .opus { fill: #6e7681; opacity: .6; } .grid { stroke: #30363d; } .save { stroke: #e6edf3; }
+      .ok { stroke: #3fb950; } .hl { stroke: #6e7681; } .tick { stroke: #9198a1; } .tid { fill: #9198a1; }
+    }
+  </style>
+  <defs>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" class="hl"/></pattern>
+    <clipPath id="sweep"><rect x="0" y="0" width="880" height="300"><animate attributeName="width" from="120" to="880" dur="2.4s" fill="freeze"/></rect></clipPath>
+  </defs>
+  <rect class="bg" width="880" height="280" rx="14"/>
+  <text class="h" x="24" y="38">프로젝트 1 · 웹 게임: main이 일하는 동안 레인도 일했다</text>
+  <text class="s" x="24" y="60">main이 일한 154분 옆에서 레인이 265분 일했어요 · 레인 작업 29건 (눈금이 작업이 들어온 때) · 시각은 KST</text>
+  <line class="grid" x1="257.5" x2="257.5" y1="84" y2="244"/>
+  <text class="s" x="257.5" y="262" text-anchor="middle">15:00</text>
+  <line class="grid" x1="415.0" x2="415.0" y1="84" y2="244"/>
+  <text class="s" x="415.0" y="262" text-anchor="middle">16:00</text>
+  <line class="grid" x1="572.5" x2="572.5" y1="84" y2="244"/>
+  <text class="s" x="572.5" y="262" text-anchor="middle">17:00</text>
+  <line class="grid" x1="730.0" x2="730.0" y1="84" y2="244"/>
+  <text class="s" x="730.0" y="262" text-anchor="middle">18:00</text>
+  <text class="s" x="24" y="109">main · Opus</text>
+  <text class="s" x="24" y="165">mid · Sonnet</text>
+  <text class="s" x="24" y="221">low · Haiku</text>
+  <g clip-path="url(#sweep)">
+    <rect class="main" x="126.2" y="92" width="224.2" height="24" rx="4"/>
+    <rect class="main" x="362.7" y="92" width="13.1" height="24" rx="4"/>
+    <rect class="main" x="386.4" y="92" width="5.4" height="24" rx="4"/>
+    <rect class="main" x="414.4" y="92" width="13.1" height="24" rx="4"/>
+    <rect class="main" x="442.4" y="92" width="6.1" height="24" rx="4"/>
+    <rect class="main" x="470.3" y="92" width="21.6" height="24" rx="4"/>
+    <rect class="main" x="536.7" y="92" width="23.4" height="24" rx="4"/>
+    <rect class="main" x="601.9" y="92" width="17.4" height="24" rx="4"/>
+    <rect class="main" x="662.0" y="92" width="23.1" height="24" rx="4"/>
+    <rect class="main" x="703.2" y="92" width="8.4" height="24" rx="4"/>
+    <rect class="main" x="766.5" y="92" width="30.3" height="24" rx="4"/>
+    <rect class="main" x="836.8" y="92" width="18.7" height="24" rx="4"/>
+    <rect class="mid" x="185.5" y="148" width="11.9" height="24" rx="4"/>
+    <rect class="mid" x="235.1" y="148" width="59.0" height="24" rx="4"/>
+    <rect class="mid" x="310.2" y="148" width="26.4" height="24" rx="4"/>
+    <rect class="mid" x="347.7" y="148" width="122.6" height="24" rx="4"/>
+    <rect class="mid" x="486.1" y="148" width="181.2" height="24" rx="4"/>
+    <rect class="mid" x="679.1" y="148" width="96.5" height="24" rx="4"/>
+    <rect class="mid" x="793.3" y="148" width="62.3" height="24" rx="4"/>
+    <rect class="low" x="185.6" y="204" width="10.1" height="24" rx="4"/>
+    <rect class="low" x="235.3" y="204" width="28.3" height="24" rx="4"/>
+    <rect class="low" x="276.4" y="204" width="3.0" height="24" rx="4"/>
+    <rect class="low" x="483.2" y="204" width="6.4" height="24" rx="4"/>
+    <rect class="low" x="546.5" y="204" width="3.1" height="24" rx="4"/>
+    <rect class="low" x="605.5" y="204" width="4.3" height="24" rx="4"/>
+    <rect class="low" x="670.7" y="204" width="6.7" height="24" rx="4"/>
+    <rect class="low" x="711.6" y="204" width="23.8" height="24" rx="4"/>
+    <rect class="low" x="746.8" y="204" width="3.0" height="24" rx="4"/>
+    <rect class="low" x="761.6" y="204" width="4.8" height="24" rx="4"/>
+    <rect class="low" x="790.5" y="204" width="46.3" height="24" rx="4"/>
+    <line class="tick" x1="185.4" x2="185.4" y1="142" y2="148"/>
+    <text class="tid" x="185.4" y="139" text-anchor="middle">T1</text>
+    <line class="tick" x1="185.5" x2="185.5" y1="198" y2="204"/>
+    <text class="tid" x="185.5" y="195" text-anchor="middle">T2</text>
+    <line class="tick" x1="234.9" x2="234.9" y1="142" y2="148"/>
+    <text class="tid" x="234.9" y="139" text-anchor="middle">T3</text>
+    <line class="tick" x1="235.0" x2="235.0" y1="198" y2="204"/>
+    <text class="tid" x="235.0" y="195" text-anchor="middle">T4</text>
+    <line class="tick" x1="242.2" x2="242.2" y1="142" y2="148"/>
+    <line class="tick" x1="250.7" x2="250.7" y1="198" y2="204"/>
+    <line class="tick" x1="253.9" x2="253.9" y1="142" y2="148"/>
+    <line class="tick" x1="310.1" x2="310.1" y1="142" y2="148"/>
+    <text class="tid" x="310.1" y="139" text-anchor="middle">T10</text>
+    <line class="tick" x1="347.5" x2="347.5" y1="142" y2="148"/>
+    <text class="tid" x="347.5" y="139" text-anchor="middle">T12</text>
+    <line class="tick" x1="363.3" x2="363.3" y1="142" y2="148"/>
+    <line class="tick" x1="387.4" x2="387.4" y1="142" y2="148"/>
+    <text class="tid" x="387.4" y="139" text-anchor="middle">T14</text>
+    <line class="tick" x1="415.2" x2="415.2" y1="142" y2="148"/>
+    <line class="tick" x1="448.3" x2="448.3" y1="142" y2="148"/>
+    <text class="tid" x="448.3" y="139" text-anchor="middle">T17</text>
+    <line class="tick" x1="483.1" x2="483.1" y1="198" y2="204"/>
+    <text class="tid" x="483.1" y="195" text-anchor="middle">T19</text>
+    <line class="tick" x1="485.9" x2="485.9" y1="142" y2="148"/>
+    <text class="tid" x="485.9" y="139" text-anchor="middle">T20</text>
+    <line class="tick" x1="537.5" x2="537.5" y1="142" y2="148"/>
+    <text class="tid" x="537.5" y="139" text-anchor="middle">T21</text>
+    <line class="tick" x1="546.4" x2="546.4" y1="198" y2="204"/>
+    <text class="tid" x="546.4" y="195" text-anchor="middle">T23</text>
+    <line class="tick" x1="558.4" x2="558.4" y1="142" y2="148"/>
+    <line class="tick" x1="602.2" x2="602.2" y1="142" y2="148"/>
+    <text class="tid" x="602.2" y="139" text-anchor="middle">T24</text>
+    <line class="tick" x1="605.4" x2="605.4" y1="198" y2="204"/>
+    <text class="tid" x="605.4" y="195" text-anchor="middle">T26</text>
+    <line class="tick" x1="617.5" x2="617.5" y1="142" y2="148"/>
+    <line class="tick" x1="663.3" x2="663.3" y1="142" y2="148"/>
+    <text class="tid" x="663.3" y="139" text-anchor="middle">T27</text>
+    <line class="tick" x1="670.5" x2="670.5" y1="198" y2="204"/>
+    <text class="tid" x="670.5" y="195" text-anchor="middle">T28</text>
+    <line class="tick" x1="685.5" x2="685.5" y1="142" y2="148"/>
+    <line class="tick" x1="703.9" x2="703.9" y1="142" y2="148"/>
+    <text class="tid" x="703.9" y="139" text-anchor="middle">T30</text>
+    <line class="tick" x1="711.5" x2="711.5" y1="198" y2="204"/>
+    <text class="tid" x="711.5" y="195" text-anchor="middle">T31</text>
+    <line class="tick" x1="793.1" x2="793.1" y1="142" y2="148"/>
+    <text class="tid" x="793.1" y="139" text-anchor="middle">T32</text>
+    <line class="tick" x1="796.6" x2="796.6" y1="198" y2="204"/>
+    <text class="tid" x="796.6" y="195" text-anchor="middle">T33</text>
+    <line class="tick" x1="844.4" x2="844.4" y1="142" y2="148"/>
+    <text class="tid" x="844.4" y="139" text-anchor="middle">T34</text>
+  </g>
+</svg>

@@ -9,13 +9,13 @@
     .w { font: 600 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #ffffff; }
     .g { font: 700 14px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1a7f37; }
     .big { font: 700 22px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1a7f37; }
-    .main { fill: #0969da; } .opus { fill: #0969da; opacity: .38; } .mid { fill: #8250df; } .low { fill: #1a7f37; }
+    .main { fill: #0a7ea4; } .opus { fill: #0a7ea4; opacity: .38; } .mid { fill: #8250df; } .low { fill: #1a7f37; }
     .save { fill: none; stroke: #1a7f37; stroke-width: 1.6; stroke-dasharray: 5 4; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #0d1117; } .card { fill: #161b22; stroke: #30363d; }
       .h, .t, .m { fill: #e6edf3; } .s { fill: #9198a1; }
       .g, .big { fill: #3fb950; }
-      .main, .opus { fill: #4493f8; } .mid { fill: #ab7df8; } .low { fill: #3fb950; } .save { stroke: #3fb950; }
+      .main, .opus { fill: #1b8fb8; } .mid { fill: #a371f7; } .low { fill: #2ea043; } .save { stroke: #3fb950; }
     }
   </style>
   <defs>

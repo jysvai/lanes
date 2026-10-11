@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" width="880" height="280" role="img" aria-label="Project 2 · the lanes plugin: the lanes worked while main did. Beside 151 minutes of main's work, the lanes worked 62 minutes · 7 lane tasks (a tick where each came in) · times in KST">
+  <style>
+    .bg { fill: #f6f8fa; }
+    .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+    .h { font: 700 19px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .hero { font: 700 26px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .t { font: 600 15px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .s { font: 13px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .m { font: 13px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .mb { font: 700 13px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .w { font: 600 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #ffffff; }
+    .main { fill: #0a7ea4; } .mid { fill: #8250df; } .low { fill: #1a7f37; }
+    .opus { fill: #8c959f; opacity: .55; }
+    .grid { stroke: #d0d7de; stroke-width: 1; }
+    .save { fill: none; stroke: #1f2328; stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .ok { fill: none; stroke: #1a7f37; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .idle { fill: url(#hatch); }
+    .hl { stroke: #8c959f; stroke-width: 1; }
+    .tick { stroke: #57606a; stroke-width: 1.5; }
+    .tid { font: 11px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #57606a; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; } .card { fill: #161b22; stroke: #30363d; }
+      .h, .hero, .t, .m, .mb { fill: #e6edf3; } .s { fill: #9198a1; }
+      .main { fill: #1b8fb8; } .mid { fill: #a371f7; } .low { fill: #2ea043; }
+      .opus { fill: #6e7681; opacity: .6; } .grid { stroke: #30363d; } .save { stroke: #e6edf3; }
+      .ok { stroke: #3fb950; } .hl { stroke: #6e7681; } .tick { stroke: #9198a1; } .tid { fill: #9198a1; }
+    }
+  </style>
+  <defs>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" class="hl"/></pattern>
+    <clipPath id="sweep"><rect x="0" y="0" width="880" height="300"><animate attributeName="width" from="120" to="880" dur="2.4s" fill="freeze"/></rect></clipPath>
+  </defs>
+  <rect class="bg" width="880" height="280" rx="14"/>
+  <text class="h" x="24" y="38">Project 2 · the lanes plugin: the lanes worked while main did</text>
+  <text class="s" x="24" y="60">Beside 151 minutes of main's work, the lanes worked 62 minutes · 7 lane tasks (a tick where each came in) · times in KST</text>
+  <line class="grid" x1="190.1" x2="190.1" y1="84" y2="244"/>
+  <text class="s" x="190.1" y="262" text-anchor="middle">21:30</text>
+  <line class="grid" x1="298.8" x2="298.8" y1="84" y2="244"/>
+  <text class="s" x="298.8" y="262" text-anchor="middle">22:00</text>
+  <line class="grid" x1="407.4" x2="407.4" y1="84" y2="244"/>
+  <text class="s" x="407.4" y="262" text-anchor="middle">22:30</text>
+  <line class="grid" x1="516.1" x2="516.1" y1="84" y2="244"/>
+  <text class="s" x="516.1" y="262" text-anchor="middle">23:00</text>
+  <line class="grid" x1="624.8" x2="624.8" y1="84" y2="244"/>
+  <text class="s" x="624.8" y="262" text-anchor="middle">23:30</text>
+  <line class="grid" x1="733.4" x2="733.4" y1="84" y2="244"/>
+  <text class="s" x="733.4" y="262" text-anchor="middle">00:00</text>
+  <line class="grid" x1="842.1" x2="842.1" y1="84" y2="244"/>
+  <text class="s" x="842.1" y="262" text-anchor="middle">00:30</text>
+  <text class="s" x="24" y="109">main · Opus</text>
+  <text class="s" x="24" y="165">mid · Sonnet</text>
+  <text class="s" x="24" y="221">low · Haiku</text>
+  <rect class="idle" x="444.8" y="88" width="187.9" height="152"/>
+  <text class="s" x="538.8" y="80" text-anchor="middle">away</text>
+  <g clip-path="url(#sweep)">
+    <rect class="main" x="120.5" y="92" width="324.3" height="24" rx="4"/>
+    <rect class="main" x="632.7" y="92" width="223.3" height="24" rx="4"/>
+    <rect class="mid" x="174.9" y="148" width="9.7" height="24" rx="4"/>
+    <rect class="mid" x="274.7" y="148" width="17.7" height="24" rx="4"/>
+    <rect class="mid" x="388.8" y="148" width="26.0" height="24" rx="4"/>
+    <rect class="mid" x="633.4" y="148" width="78.3" height="24" rx="4"/>
+    <rect class="low" x="142.8" y="204" width="3.0" height="24" rx="4"/>
+    <rect class="low" x="254.4" y="204" width="13.4" height="24" rx="4"/>
+    <rect class="low" x="642.5" y="204" width="77.3" height="24" rx="4"/>
+    <line class="tick" x1="142.6" x2="142.6" y1="198" y2="204"/>
+    <text class="tid" x="142.6" y="195" text-anchor="middle">T3</text>
+    <line class="tick" x1="174.7" x2="174.7" y1="142" y2="148"/>
+    <text class="tid" x="174.7" y="139" text-anchor="middle">T4</text>
+    <line class="tick" x1="254.1" x2="254.1" y1="198" y2="204"/>
+    <text class="tid" x="254.1" y="195" text-anchor="middle">T5</text>
+    <line class="tick" x1="274.4" x2="274.4" y1="142" y2="148"/>
+    <text class="tid" x="274.4" y="139" text-anchor="middle">T6</text>
+    <line class="tick" x1="388.6" x2="388.6" y1="142" y2="148"/>
+    <text class="tid" x="388.6" y="139" text-anchor="middle">T7</text>
+    <line class="tick" x1="633.3" x2="633.3" y1="142" y2="148"/>
+    <text class="tid" x="633.3" y="139" text-anchor="middle">T8</text>
+    <line class="tick" x1="642.2" x2="642.2" y1="198" y2="204"/>
+    <text class="tid" x="642.2" y="195" text-anchor="middle">T9</text>
+  </g>
+</svg>

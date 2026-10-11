@@ -8,11 +8,11 @@
     .lab { font: 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
     .wire { fill: none; stroke: #8c959f; stroke-width: 1.6; }
     .dash { stroke-dasharray: 5 5; }
-    .main { fill: #0969da; } .mid { fill: #8250df; } .low { fill: #1a7f37; } .you { fill: #bf3989; }
+    .main { fill: #0a7ea4; } .mid { fill: #8250df; } .low { fill: #1a7f37; } .you { fill: #bf3989; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #0d1117; } .box { fill: #161b22; stroke: #30363d; }
       .t, .m { fill: #e6edf3; } .s, .lab { fill: #9198a1; } .wire { stroke: #6e7681; }
-      .main { fill: #4493f8; } .mid { fill: #ab7df8; } .low { fill: #3fb950; } .you { fill: #db61a2; }
+      .main { fill: #1b8fb8; } .mid { fill: #a371f7; } .low { fill: #2ea043; } .you { fill: #db61a2; }
     }
   </style>
   <defs>

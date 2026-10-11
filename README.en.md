@@ -68,7 +68,7 @@ A subagent takes a job, hands back one answer and is gone. A lane is **a session
 | What it found and mapped | Gone by the next call | Builds up in `notes/index.md`, and **main starts each session with that map** |
 | Cost | Not shown | **Per task**, beside what it would have cost on Opus (`/lane tasks`) |
 | Passing a chore on | Goes back through main | mid hands it straight to low |
-| Changing repo files | As its tools allow | **Can't write** outside `.claude/lanes/` and the temp folder (the plugin refuses) |
+| Changing repo files | As its tools allow | **Can't write** in the repo outside `.claude/lanes/` (the plugin refuses Write and Edit) |
 
 - **Inbox**: when a lane replies while main is closed or restarting, the reply goes into the next main session's prompt (for up to three days). The lane doesn't keep retrying.
 - **Follow-ups**: `/lane status` lists the tasks a lane still has in context. Main sends that lane `(follow-up to T7) ...` instead of explaining again. The list empties when the lane closes and reopens.
@@ -108,9 +108,22 @@ A real record of one web game project worked on all afternoon (4.6 hours), next 
 
 - **The lanes' own share came out 57% cheaper.** mid (Sonnet) went from $52.30 to $26.15, half; low (Haiku) from $9.81 to $0.52, 95% less.
 - **On a subscription (Pro, Max)** the bill stays the same, but usage limits are drawn down roughly by model price too: about **1.5×** the work from the same limits.
-- **It saves more than the table shows.** The screenshots, logs and search results the lanes read (over 90 million tokens in this session) never piled up in main's conversation, so every later turn of main stayed light. That part isn't in the table.
+- **It saves more than the table shows.** The screenshots, logs and search results the lanes read (over 100 million tokens in this session) never piled up in main's conversation, so every later turn of main stayed light. That part isn't in the table.
 - **You get more than a lower bill.** Main's context stays light, so it stays on track through long work; checks and research run while main keeps working; and every task's result and cost is on record.
 - **How it's counted:** every request in the session logs, its tokens priced at its model's [API list price](https://platform.claude.com/docs/en/about-claude/pricing) (cache writes at the 1-hour rate). A week, a month and a year take this session as one working day.
+
+### Measured on two projects
+
+<p align="center"><img src="docs/en/projects.svg" width="880" alt="Two projects measured: all on Opus 145.64 dollars, with lanes 101.53 dollars, 44.11 dollars (30%) saved"></p>
+
+| | Project 1 · a web game | Project 2 · the lanes plugin | Both |
+|---|---:|---:|---:|
+| Session | 4.7 h · 29 lane tasks | 3.4 h · 7 lane tasks | 8.1 h |
+| All on Opus | $106.13 | $39.51 | $145.64 |
+| With lanes | $70.64 | $30.89 | $101.53 |
+| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$44.11 (30%)** |
+
+Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
 
 See your own project's numbers with `/lane usage`:
 
@@ -247,6 +260,26 @@ claude plugin validate lanes
 claude plugin test lanes
 ```
 </details>
+
+## Security
+
+A lane is a Claude Code session on your machine, with your rights. From 0.3.1 it guards against the following.
+
+- **Files a repo plants:** the queue a lane runs, the tasks main handed out, and the notes' seal live in your user folder (`~/.claude/lanes/<project>/`). A queue in a cloned repo's `.claude/lanes/` is never run, and only replies to tasks this machine's main handed out reach main's prompt. The notes (`notes/index.md`) go in only as this machine's sessions wrote them with Write or Edit.
+- **Links:** with a symbolic link or a junction under `.claude/lanes`, the lanes stay off, so no write can land somewhere else. A `.gitignore` a repo put there goes back to `*`.
+- **Command injection:** on Windows, the lanes start `claude.exe` rather than npm's `claude.cmd`; where they can't, a path with a character cmd.exe acts on (`& | < > ^ % ! , ; = "`) keeps the lanes closed.
+- **Terminal control characters:** escape sequences and control characters are stripped from lane replies and progress pings before the status line and `/lane status` show them. Pings and verdicts count only on the first line of a message from this project's lanes.
+- **Reply address:** a lane replies to main's unique address, not its name: another session in the same folder can get main's name.
+- **What a lane reads is data:** the lanes are told not to follow instructions in pages, files and logs, and not to copy commands from them into notes or replies.
+- **Keys:** no key or token is written to a run file. A lane's scratch files go in a folder of its own.
+
+**Not a security boundary:**
+- The lanes' write limits (Write, Edit) and git blocks prevent accidents. A lane has a shell and could get round them.
+- With the permission mode set to `bypassPermissions`, a lane runs without asking.
+- Other programs of the same user can message a lane.
+- A project's `.claude/lanes/roles/<lane>.md` joins the lane's instructions, as `CLAUDE.md` does. In a repo you don't know, read both before opening the lanes.
+
+Report a vulnerability as [SECURITY.md](SECURITY.md) says.
 
 ## Contact
 

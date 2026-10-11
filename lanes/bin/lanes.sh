@@ -69,16 +69,20 @@ peer_pid() {
 quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 
 write_prompt() {
-  local tier="$1" file="$state/$1.prompt.md" styled="$plugin_root/roles/styles/$style.md"
-  # a model can be an ARN (…/application-inference-profile/…): | delimits, and \ & | in a value are escaped
-  esc() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+  local tier="$1" file="$state/$1.prompt.md" styled="$plugin_root/roles/styles/$style.md" tmp
+  # a model can be an ARN (…/application-inference-profile/…): | delimits, \ & | in a value are
+  # escaped, and a line break (which would end the expression) is dropped
+  esc() { printf '%s' "$1" | tr -d '\r\n' | sed -e 's/[\\&|]/\\&/g'; }
+  # written beside the file and renamed over it: a rename replaces a link, a write would follow it
+  tmp="$(mktemp "$state/.prompt.XXXXXX")"
   { cat "$plugin_root/roles/$tier.md"; if [ -f "$styled" ]; then printf '\n\n'; cat "$styled"; fi; } |
-    sed -e "s|{{MID}}|$(esc "$slug-mid")|g" -e "s|{{LOW}}|$(esc "$slug-low")|g" \
-        -e "s|{{MID_MODEL}}|$(esc "$(model_of mid)")|g" -e "s|{{LOW_MODEL}}|$(esc "$(model_of low)")|g" > "$file"
+    sed -e "s|{{MID}}|$(esc "$slug-mid")|g" -e "s|{{LOW}}|$(esc "$slug-low")|g" -e "s|{{SCRATCH}}|$(esc "$scratch")|g" \
+        -e "s|{{MID_MODEL}}|$(esc "$(model_of mid)")|g" -e "s|{{LOW_MODEL}}|$(esc "$(model_of low)")|g" > "$tmp"
   if [ -f "$dir/roles/$tier.md" ]; then
-    printf '\n\n## This project\n\n' >> "$file"
-    cat "$dir/roles/$tier.md" >> "$file"
+    printf '\n\n## This project\n\n' >> "$tmp"
+    cat "$dir/roles/$tier.md" >> "$tmp"
   fi
+  mv -f "$tmp" "$file"
   echo "$file"
 }
 
@@ -89,9 +93,9 @@ start_lane() {
   prompt="$(write_prompt "$tier")"
   fallback="$(fallback_of "$tier")"; [ "$fallback" = "none" ] && fallback=""
   compact="$(compact_of "$tier")"
-  # the temp folder is where a lane's scratch files go (the repo is main's), so it is a working directory too
+  # the lanes' own scratch folder is where their scratch files go (the repo is main's), so it is a working directory too
   args=(-n "$name" --model "$(model_of "$tier")" --effort "$(effort_of "$tier")"
-        --permission-mode "$permission_mode" --append-system-prompt-file "$prompt" --add-dir "${TMPDIR:-/tmp}")
+        --permission-mode "$permission_mode" --append-system-prompt-file "$prompt" --add-dir "$scratch")
   [ -n "$fallback" ] && args+=(--fallback-model "$fallback")
   [ -n "$compact" ] && args+=(--autocompact "$compact")
   # Lanes report; code edits, commits, pushes and deploys stay with the main session.
@@ -104,6 +108,7 @@ start_lane() {
 
   # .command: the file type Terminal runs when it opens one
   run="$state/$tier.run.command"
+  tmp="$(mktemp "$state/.run.XXXXXX")"
   {
     echo '#!/usr/bin/env bash'
     # the window's title; a background lane has no window, and the escape would land in the output
@@ -129,8 +134,9 @@ start_lane() {
     if [ "$launch" = "window" ]; then
       echo 'if [ $(( $(date +%s) - started )) -lt 20 ]; then read -r -p "claude exited early - press Enter to close" _; fi'
     fi
-  } > "$run"
-  chmod +x "$run"
+  } > "$tmp"
+  chmod +x "$tmp"
+  mv -f "$tmp" "$run"
 
   if [ "$launch" = "window" ]; then
     # Opening the file in Terminal needs no Automation permission, which scripting
@@ -155,12 +161,33 @@ stop_lane() {
   echo "$name stopped (pid $pid)"
 }
 
-mkdir -p "$state" "$dir/out" "$dir/notes"
-[ -f "$dir/.gitignore" ] || echo '*' > "$dir/.gitignore"
+# The lanes' scratch folder: their own, not the shared temp folder others on this machine can write.
+scratch="${TMPDIR:-/tmp}"
+scratch="${scratch%/}/lanes-$(id -u)-$slug"
 
-# A lane that can't find claude, or a claude too old for the flags below, only says
-# "exited early"; say why here instead, where the main session reads the output.
 if [ "$verb" = "start" ]; then
+  # A link under .claude/lanes (a repo can ship one) would take the writes below anywhere.
+  for p in "$project/.claude" "$dir" "$state" "$dir/out" "$dir/notes" "$dir/roles" "$dir/.gitignore" \
+           "$state"/* "$state"/.[!.]* "$dir/roles"/* "$dir/out"/* "$dir/notes"/*; do
+    if [ -L "$p" ]; then
+      echo "lanes: $p is a link; the lanes stay off in this project until it is removed." >&2
+      exit 1
+    fi
+  done
+  mkdir -p "$state" "$dir/out" "$dir/notes"
+  # nothing but '*', whatever a repo shipped: reports, notes and state stay out of git
+  if [ "$(grep -v '^[[:space:]]*$' "$dir/.gitignore" 2>/dev/null | tr -d '\r' | sed 's/[[:space:]]*$//')" != '*' ]; then
+    printf '*\n' > "$dir/.gitignore"
+  fi
+  mkdir -p "$scratch"
+  chmod 700 "$scratch" 2>/dev/null || true
+  if [ -L "$scratch" ] || [ ! -O "$scratch" ]; then
+    echo "lanes: $scratch is a link or someone else's; remove it to open the lanes." >&2
+    exit 1
+  fi
+
+  # A lane that can't find claude, or a claude too old for the flags below, only says
+  # "exited early"; say why here instead, where the main session reads the output.
   if ! command -v claude > /dev/null; then
     echo "lanes: claude is not on PATH in bash, so no lane can open. Install Claude Code there, or add it to PATH."
     exit 1

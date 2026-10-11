@@ -82,7 +82,7 @@ function Write-Prompt($tier) {
   if (Test-Path -LiteralPath $styleFile) {
     $text += "`n`n" + (Get-Content -LiteralPath $styleFile -Raw -Encoding UTF8)
   }
-  $text = $text.Replace('{{MID}}', "$Slug-mid").Replace('{{LOW}}', "$Slug-low")
+  $text = $text.Replace('{{MID}}', "$Slug-mid").Replace('{{LOW}}', "$Slug-low").Replace('{{SCRATCH}}', $Scratch)
   $text = $text.Replace('{{MID_MODEL}}', $MidModel).Replace('{{LOW_MODEL}}', $LowModel)
   $extra = Join-Path $Dir "roles\$tier.md"
   if (Test-Path -LiteralPath $extra) {
@@ -98,9 +98,9 @@ function Start-Lane($tier) {
   $peer = Get-Peer $name
   if ($peer) { return "$name already running (pid $($peer.pid))" }
   $c = $Cfg[$tier]
-  # the temp folder is where a lane's scratch files go (the repo is main's), so it is a working directory too
+  # the lanes' own scratch folder is where their scratch files go (the repo is main's), so it is a working directory too
   $argv = @('-n', $name, '--model', $c.Model, '--effort', $c.Effort, '--permission-mode', $PermissionMode,
-    '--append-system-prompt-file', (Write-Prompt $tier), '--add-dir', [IO.Path]::GetTempPath().TrimEnd('\'))
+    '--append-system-prompt-file', (Write-Prompt $tier), '--add-dir', $Scratch)
   if ($c.Fallback -and $c.Fallback -ne 'none') { $argv += @('--fallback-model', $c.Fallback) }
   if ($c.Compact) { $argv += @('--autocompact', $c.Compact) }
   # Lanes report; code edits, commits, pushes and deploys stay with the main session.
@@ -109,6 +109,12 @@ function Start-Lane($tier) {
     'cherry-pick', 'revert', 'apply', 'am', 'rm', 'mv')
   $argv += @('--disallowedTools', 'Edit', 'NotebookEdit') + ($git | ForEach-Object { "Bash(git ${_}:*)", "PowerShell(git ${_}:*)" })
   if ($Launch -eq 'background') { $argv = @('--bg') + $argv }
+  # A .cmd shim hands its arguments to cmd.exe, which runs & | < > ^ and expands % in them
+  # (PowerShell quotes only what has a space): a folder named "x&calc&y" would run calc.
+  if ($Claude -match '\.(cmd|bat)$' -and ($argv | Where-Object { $_ -match '[&|<>^%!,;="]' })) {
+    return "lanes: this project's path or a lane setting has one of & | < > ^ % ! , ; = `", which claude.cmd would hand to cmd.exe to run. Install the native claude (claude.exe), or rename the folder."
+  }
+  New-Item -ItemType Directory -Force -Path $Scratch | Out-Null
 
   $run = Join-Path $State "$tier.run.ps1"
   $lines = @(
@@ -144,13 +150,32 @@ function Stop-Lane($tier) {
   return "$name stopped (pid $($peer.pid))"
 }
 
-New-Item -ItemType Directory -Force -Path $State, (Join-Path $Dir 'out'), (Join-Path $Dir 'notes') | Out-Null
-$ignore = Join-Path $Dir '.gitignore'
-if (-not (Test-Path -LiteralPath $ignore)) { Set-Content -LiteralPath $ignore -Value '*' -Encoding ASCII }
+# The lanes' scratch folder, inside this user's temp folder.
+$Scratch = Join-Path ([IO.Path]::GetTempPath()) "lanes-$Slug"
 
-# A lane window that can't find claude, or a claude too old for the flags below, only
-# says "exited early"; say why here instead, where the main session reads the output.
+# A symbolic link or junction (not a OneDrive placeholder, which is a reparse point too)
+function Test-Link($path) {
+  $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+  return [bool]($item -and $item.LinkType -in 'SymbolicLink', 'Junction')
+}
+
 if ($Verb -eq 'start') {
+  # A link under .claude\lanes (a repo can ship one) would take the writes below anywhere.
+  $watch = @((Join-Path $Project '.claude'), $Dir, $State, (Join-Path $Dir 'out'), (Join-Path $Dir 'notes'), (Join-Path $Dir 'roles'), (Join-Path $Dir '.gitignore'), $Scratch)
+  foreach ($d in $State, (Join-Path $Dir 'roles'), (Join-Path $Dir 'out'), (Join-Path $Dir 'notes')) {
+    if ((Test-Path -LiteralPath $d) -and -not (Test-Link $d)) { $watch += @(Get-ChildItem -LiteralPath $d -Force | ForEach-Object FullName) }
+  }
+  foreach ($p in $watch) {
+    if (Test-Link $p) { "lanes: $p is a link; the lanes stay off in this project until it is removed."; exit 1 }
+  }
+  New-Item -ItemType Directory -Force -Path $State, (Join-Path $Dir 'out'), (Join-Path $Dir 'notes') | Out-Null
+  # nothing but '*', whatever a repo shipped: reports, notes and state stay out of git
+  $ignore = Join-Path $Dir '.gitignore'
+  $kept = @(if (Test-Path -LiteralPath $ignore) { Get-Content -LiteralPath $ignore | ForEach-Object { $_.Trim() } | Where-Object { $_ } })
+  if ($kept.Count -ne 1 -or $kept[0] -ne '*') { Set-Content -LiteralPath $ignore -Value '*' -Encoding ASCII }
+
+  # A lane window that can't find claude, or a claude too old for the flags below, only
+  # says "exited early"; say why here instead, where the main session reads the output.
   # claude as a program (claude.exe, or npm's claude.cmd), never npm's claude.ps1 shim,
   # which PowerShell finds first and an execution policy that refuses script files refuses
   $Claude = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue |
@@ -158,6 +183,11 @@ if ($Verb -eq 'start') {
   if (-not $Claude) {
     'lanes: claude is not on PATH in PowerShell, so no lane can open. Install Claude Code there, or add it to PATH.'
     exit 1
+  }
+  # npm's claude.cmd only starts the claude.exe beside it: start that one, and cmd.exe stays out of it
+  if ($Claude -match '\.(cmd|bat)$') {
+    $exe = Join-Path (Split-Path -Parent $Claude) 'node_modules\@anthropic-ai\claude-code\bin\claude.exe'
+    if (Test-Path -LiteralPath $exe) { $Claude = $exe }
   }
   $found = [regex]::Match((& $Claude --version | Out-String), '\d+\.\d+\.\d+').Value
   if ($found -and [version]$found -lt $MinClaude) {
