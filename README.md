@@ -28,10 +28,10 @@ Claude Code 프롬프트에서 (Windows·macOS 공통):
 /plugin install lanes@claude-mod
 ```
 
-GitHub에 올린 뒤에는 다른 PC에서 이 한 줄이면 됩니다:
+다른 PC에서는 이 한 줄이면 됩니다:
 
 ```
-/plugin install lanes --marketplace jysvai/claude-mod
+/plugin install lanes --marketplace jysvai/lanes
 ```
 
 `y`로 마켓플레이스를 추가하고 user 범위를 고르면, 이후 모든 프로젝트의 모든 세션에서 켜집니다.
@@ -61,7 +61,11 @@ GitHub에 올린 뒤에는 다른 PC에서 이 한 줄이면 됩니다:
 3. 레인 답을 받아 다시 고치고, 고친 것을 mid 레인에 다시 검증시킵니다.
 4. 끝나면 무엇이 바뀌었고 무엇을 확인했는지 보고합니다.
 
-상태줄은 짧게만 보여줍니다: `lanes  sonnet ● T3 2m · haiku ○` (● 작업 중, ○ 대기, off 꺼짐)
+상태줄은 짧게만 보여줍니다: `lanes  sonnet ● T3 2m · haiku ○`
+- `●` 작업 중, `○` 대기, `off` 꺼짐
+- `T3`은 **작업 번호**예요 (터미널 번호가 아님). 그 프로젝트에서 레인에 넘긴 세 번째 작업이라는 뜻이고, 레인이 바뀌어도 번호는 이어집니다.
+- 상세 보고서는 같은 번호로 `.claude/lanes/out/T3.md`에 남아요.
+- `2m`은 그 작업을 시작한 지 2분 지났다는 뜻입니다.
 
 ### 설정 (`/config`)
 

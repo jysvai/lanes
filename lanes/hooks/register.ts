@@ -235,7 +235,7 @@ async function report($: EngineInterface) {
     // no reports yet
   }
 
-  return rows.join('\n') + recent
+  return `${rows.join('\n')}${recent}\nT<n> is task number n in this project; its full report is .claude/lanes/out/T<n>.md`
 }
 
 async function runScript($: EngineInterface, verb: 'start' | 'stop', which: Tier | 'all') {
