@@ -6,7 +6,8 @@ import type { On } from 'claude-code'
 function ground(on: On, files: Record<string, string>, env: Record<string, string>, usage: Record<string, unknown> | null) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', ...env })
   mock.clock(on)
-  const key = (p: string) => p.replaceAll('\\', '/')
+  // on macOS a C:/ path isn't absolute and comes resolved against the plugin's folder
+  const key = (p: string) => p.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.exists', ($, e) => ({ value: Object.keys(files).some(f => f.startsWith(key(e.path))) }))
   on('fs.list', () => ({ value: [] }))

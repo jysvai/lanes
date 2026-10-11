@@ -96,11 +96,15 @@ start_lane() {
   done
   [ "$launch" = "background" ] && args=(--bg "${args[@]}")
 
-  run="$state/$tier.run.sh"
+  # .command: the file type Terminal runs when it opens one
+  run="$state/$tier.run.command"
   {
     echo '#!/usr/bin/env bash'
     printf 'printf "\\033]0;%%s\\007" %s\n' "$(quote "$name")"
     echo "cd $(quote "$project") || exit 1"
+    # a Terminal window starts from a fresh login shell: hand it the claude and the config dir this session uses
+    echo "export PATH=$(quote "$PATH")"
+    if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then echo "export CLAUDE_CONFIG_DIR=$(quote "$CLAUDE_CONFIG_DIR")"; fi
     echo "export CLAUDE_LANE=$tier"
     echo 'started=$(date +%s)'
     printf 'claude'
@@ -113,7 +117,12 @@ start_lane() {
   chmod +x "$run"
 
   if [ "$launch" = "window" ]; then
-    osascript -e "tell application \"Terminal\" to do script \"/bin/bash '$run'\"" > /dev/null
+    # Opening the file in Terminal needs no Automation permission, which scripting
+    # Terminal with osascript would ask for on the first window and wait on.
+    if ! open -a Terminal "$run"; then
+      echo "lanes: couldn't open a Terminal window for $name. Set the lanes' launch to background in /config." >&2
+      exit 1
+    fi
   else
     /bin/bash "$run"
   fi

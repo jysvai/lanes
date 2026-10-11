@@ -2,15 +2,16 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, files: Record<string, string> = {}, delivered = true) {
-  mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' })
+function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }) {
+  mock.env(on, env)
   const clock = mock.clock(on)
   files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-55c5-low', sessionId: 'lane-1' })
   files['C:/Users/me/.claude/sessions/22.json'] = JSON.stringify({ pid: 22, name: 'demo-main', sessionId: 'main-1' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.exists', () => ({ value: true }))
-  // the engine hands hooks native paths (backslashes on Windows)
-  const key = (path: string) => path.replaceAll('\\', '/')
+  // the engine hands hooks native paths: backslashes on Windows, and on macOS a C:/ path,
+  // which isn't absolute there, comes resolved against the plugin's folder
+  const key = (path: string) => path.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
   on('fs.list', ($, e) => ({
     value: key(e.path).endsWith('/sessions')
       ? [{ name: '11.json', kind: 'file', size: 1, mtimeMs: 0, isLink: false }, { name: '22.json', kind: 'file', size: 1, mtimeMs: 0, isLink: false }]
@@ -195,6 +196,20 @@ test('opening a lane hands the script its name and the permission mode from /con
   expect(sent.run).toContain("'start' 'mid'")
   expect(sent.run).toContain("-Name 'demo-55c5'")
   expect(sent.run).toContain("-PermissionMode 'dontAsk'")
+})
+
+test('on macOS and Linux a lane opens through bash, with its settings in the environment', async ($, on) => {
+  const sent: { to?: unknown; text?: string; run?: string } = {}
+  ground(on, sent, {}, true, { HOME: '/Users/me' })
+  await $.session.start({ cwd: '/Users/bob/Jack’s App', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'lane', args: 'start mid' } as never)
+
+  expect(sent.run).toContain('"/bin/bash"')
+  expect(sent.run).toContain('/bin/lanes.sh","start","mid"')
+  expect(sent.run).not.toContain('powershell')
+  expect(sent.run).toContain('"LANES_PROJECT":"/Users/bob/Jack’s App"')
+  expect(sent.run).toMatch(/"LANES_SLUG":"jack-s-app-[0-9a-f]{4}"/)
+  expect(sent.run).toContain('"LANES_PERMISSION_MODE":"auto"')
 })
 
 test("a lane that hasn't come up a while after opening shows a warning, not just off", async ($, on) => {

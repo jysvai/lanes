@@ -5,7 +5,8 @@ import type { On } from 'claude-code'
 function ground(on: On, files: Record<string, string>) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', CLAUDE_LANE: 'low' })
   const clock = mock.clock(on)
-  const key = (p: string) => p.replaceAll('\\', '/')
+  // on macOS a C:/ path isn't absolute and comes resolved against the plugin's folder
+  const key = (p: string) => p.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.exists', ($, e) => ({ value: key(e.path) in files }))
   on('fs.list', () => ({ value: [] }))
@@ -155,7 +156,7 @@ test('a junction or a short name that lands in the repo is caught on where it re
   // C:/work/DEMO~1 is the short name of C:/work/demo; C:/tmp/link is a junction to C:/work/demo/src
   const real: Record<string, string> = { 'c:/work/demo~1': 'C:\\work\\demo', 'c:/tmp/link': 'C:\\work\\demo\\src', 'c:/work/demo': 'C:\\work\\demo', 'c:/tmp': 'C:\\tmp', 'c:/': 'C:\\' }
   on('fs.stat', ($, e) => {
-    const at = e.path.replaceAll('\\', '/').toLowerCase()
+    const at = e.path.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '').toLowerCase()
 
     return at in real ? { value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false, realPath: real[at] } } : { deny: 'no such file' }
   })

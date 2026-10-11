@@ -1,6 +1,6 @@
 {
   "name": "lanes",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "On-demand lane sessions beside your main Claude Code session: a mid lane for tests and verification, a low lane for search, scripts and crawling. Status line, /lane, and tools the main model calls.",
   "author": { "name": "jysvai" },
   "userConfig": {
