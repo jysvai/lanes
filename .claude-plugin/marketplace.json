@@ -1,6 +1,6 @@
 {
   "name": "claude-mod",
-  "owner": { "name": "jysvai" },
+  "owner": { "name": "jysvai", "email": "yunseok1312@gmail.com" },
   "metadata": { "description": "Claude Code mods by jysvai" },
   "plugins": [
     {

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 jysvai
+
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
@@ -212,6 +215,65 @@ test('on macOS and Linux a lane opens through bash, with its settings in the env
   expect(sent.run).toContain('"LANES_PERMISSION_MODE":"auto"')
 })
 
+// The models a lane opens with, read off the script's arguments.
+async function modelsFor($: Parameters<Parameters<typeof test>[1]>[0], on: On, env: Record<string, string>) {
+  const sent: { to?: unknown; text?: string; run?: string } = {}
+  ground(on, sent, {}, true, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', ...env })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'lane', args: 'start mid' } as never)
+  const arg = (name: string) => sent.run?.match(new RegExp(`-${name} '([^']*)'`))?.[1]
+
+  return { mid: arg('MidModel'), midFallback: arg('MidFallback'), low: arg('LowModel'), lowFallback: arg('LowFallback') }
+}
+
+test('on Bedrock the lanes open on the inference profile for the region', async ($, on) => {
+  expect(await modelsFor($, on, { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'us-east-1' })).toEqual({
+    mid: 'us.anthropic.claude-sonnet-5-5',
+    midFallback: 'us.anthropic.claude-opus-5-5',
+    low: 'us.anthropic.claude-haiku-5-5',
+    lowFallback: 'us.anthropic.claude-sonnet-5-5',
+  })
+})
+
+for (const [where, env, low] of [
+  ['in the EU', { AWS_DEFAULT_REGION: 'eu-west-1' }, 'eu.anthropic.claude-haiku-5-5'],
+  ['in Seoul', { AWS_REGION: 'ap-northeast-2' }, 'global.anthropic.claude-haiku-5-5'],
+  ['with no region set', {}, 'global.anthropic.claude-haiku-5-5'],
+  ['with a prefix set', { AWS_REGION: 'ap-southeast-2', ANTHROPIC_BEDROCK_REGION_PREFIX: 'au.' }, 'au.anthropic.claude-haiku-5-5'],
+  ['with a prefix Bedrock doesn\'t know', { AWS_REGION: 'eu-central-1', ANTHROPIC_BEDROCK_REGION_PREFIX: 'useast' }, 'eu.anthropic.claude-haiku-5-5'],
+  ['in GovCloud', { AWS_REGION: 'us-gov-west-1' }, 'us-gov.anthropic.claude-haiku-5-5'],
+] as const) {
+  test(`on Bedrock ${where} the low lane opens on ${low}`, async ($, on) => {
+    expect((await modelsFor($, on, { CLAUDE_CODE_USE_BEDROCK: 'true', ...env })).low).toBe(low)
+  })
+}
+
+test('on Bedrock a model the person pinned for the family wins', async ($, on) => {
+  const arn = 'arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/a1b2c3'
+
+  expect((await modelsFor($, on, { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'us-west-2', ANTHROPIC_DEFAULT_SONNET_MODEL: arn })).mid).toBe(arn)
+})
+
+test("a Sonnet 4 or Haiku 4 is never a lane's model: set in /config it gives way to the default, pinned it is passed over", { options: { mid_model: 'claude-sonnet-4-6', low_fallback: 'claude-haiku-4-5' } }, async ($, on) => {
+  const got = await modelsFor($, on, { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'us-east-1', ANTHROPIC_DEFAULT_HAIKU_MODEL: 'us.anthropic.claude-haiku-4-5-20251001-v1:0' })
+
+  expect(got).toEqual({ mid: 'us.anthropic.claude-sonnet-5-5', midFallback: 'us.anthropic.claude-opus-5-5', low: 'us.anthropic.claude-haiku-5-5', lowFallback: 'us.anthropic.claude-sonnet-5-5' })
+})
+
+test('a model set in /config in the provider’s own form goes through as is', { options: { mid_model: 'eu.anthropic.claude-sonnet-5-5' } }, async ($, on) => {
+  expect((await modelsFor($, on, { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'us-east-1' })).mid).toBe('eu.anthropic.claude-sonnet-5-5')
+})
+
+for (const [provider, env, want] of [
+  ['Vertex', { CLAUDE_CODE_USE_VERTEX: '1', CLOUD_ML_REGION: 'us-east5' }, { mid: 'claude-sonnet-5-5', midFallback: 'claude-opus-5-5', low: 'claude-haiku-5-5', lowFallback: 'claude-sonnet-5-5' }],
+  ['Bedrock Mantle', { CLAUDE_CODE_USE_MANTLE: '1' }, { mid: 'anthropic.claude-sonnet-5-5', midFallback: 'anthropic.claude-opus-5-5', low: 'anthropic.claude-haiku-5-5', lowFallback: 'anthropic.claude-sonnet-5-5' }],
+  ['Foundry', { CLAUDE_CODE_USE_FOUNDRY: '1', ANTHROPIC_DEFAULT_HAIKU_MODEL: 'team-haiku-55' }, { mid: 'claude-sonnet-5-5', midFallback: 'claude-opus-5-5', low: 'team-haiku-55', lowFallback: 'claude-sonnet-5-5' }],
+] as const) {
+  test(`on ${provider} the lanes open on what it calls the models`, async ($, on) => {
+    expect(await modelsFor($, on, env)).toEqual(want)
+  })
+}
+
 test("a lane that hasn't come up a while after opening shows a warning, not just off", async ($, on) => {
   const files: Record<string, string> = {}
   const clock = ground(on, {}, files)
@@ -277,6 +339,31 @@ test("the main session's prompt carries the lanes' project map", async ($, on) =
 
   expect(await policyOf($ as never)).toContain("## The lanes' project map")
   expect(await policyOf($ as never)).toContain('- auth: src/auth/*.ts → notes/auth.md')
+})
+
+test('by default main fits the split to how the person works, and the lanes take side work from the first idea on', async ($, on) => {
+  ground(on, {})
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const policy = await policyOf($ as never)
+
+  expect(policy).toContain('Fit the split to how this person works')
+  expect(policy).toContain('researching and comparing options, drafting plans')
+  expect(policy).toContain('while an idea is still being shaped')
+  expect(policy).toContain('any token-saving or delegating skill or plugin the person has works alongside the lanes')
+})
+
+test('a work style set in /config tells main how to split the work, and goes to the lanes too', { options: { work_style: 'planner' } }, async ($, on) => {
+  const sent: { to?: unknown; text?: string; run?: string } = {}
+  ground(on, sent)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'lane', args: 'start mid' } as never)
+
+  expect(await policyOf($ as never)).toContain('This person plans: ideas, products, documents.')
+  expect(sent.run).toContain("-Style 'planner'")
+})
+
+test('the low lane falls back to Sonnet 5.5, never to an older model', async ($, on) => {
+  expect(await modelsFor($, on, {})).toEqual({ mid: 'claude-sonnet-5-5', midFallback: 'claude-opus-5-5', low: 'claude-haiku-5-5', lowFallback: 'claude-sonnet-5-5' })
 })
 
 test('/lane tasks lists both lanes\' tasks newest first, with what each cost', async ($, on) => {

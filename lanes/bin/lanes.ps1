@@ -1,4 +1,7 @@
-# Lane sessions for a project: a mid lane (tests, verification) and a low lane
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 jysvai
+
+# Lane sessions for a project: a mid lane (side work that needs judgement) and a low lane
 # (search, scripts, crawling, notes), each its own Claude Code session.
 #
 #   lanes.ps1 start  [all|mid|low] [-Project <dir>]   open each lane in its own window
@@ -19,11 +22,12 @@ param(
   [string]$MidEffort = 'high',
   [string]$MidCompact = '200k',
   [string]$LowModel = 'claude-haiku-5-5',
-  [string]$LowFallback = '',
+  [string]$LowFallback = 'claude-sonnet-5-5',
   [string]$LowEffort = 'medium',
   [string]$LowCompact = '150k',
   [ValidateSet('window', 'background')][string]$Launch = 'window',
-  [string]$PermissionMode = 'auto'
+  [string]$PermissionMode = 'auto',
+  [ValidateSet('auto', 'developer', 'planner', 'beginner')][string]$Style = 'auto'
 )
 $ErrorActionPreference = 'Stop'
 # The plugin runs this script's text as a script block (see psCommand in register.ts),
@@ -73,6 +77,11 @@ function Quote($s) { "'" + ($s -replace $Quotes, '$0$0') + "'" }
 
 function Write-Prompt($tier) {
   $text = Get-Content -LiteralPath (Join-Path $PluginRoot "roles\$tier.md") -Raw -Encoding UTF8
+  # how the person works (/config: work style); auto has no block, main reads it from them
+  $styleFile = Join-Path $PluginRoot "roles\styles\$Style.md"
+  if (Test-Path -LiteralPath $styleFile) {
+    $text += "`n`n" + (Get-Content -LiteralPath $styleFile -Raw -Encoding UTF8)
+  }
   $text = $text.Replace('{{MID}}', "$Slug-mid").Replace('{{LOW}}', "$Slug-low")
   $text = $text.Replace('{{MID_MODEL}}', $MidModel).Replace('{{LOW_MODEL}}', $LowModel)
   $extra = Join-Path $Dir "roles\$tier.md"

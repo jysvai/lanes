@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Lane sessions for a project (macOS and Linux): a mid lane (tests, verification)
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 jysvai
+# Lane sessions for a project (macOS and Linux): a mid lane (side work that needs judgement)
 # and a low lane (search, scripts, crawling, notes), each its own Claude Code session.
 #
 #   lanes.sh start  [all|mid|low]    a Terminal window per lane on macOS, background elsewhere
@@ -7,7 +9,7 @@
 #   lanes.sh status
 #
 # Settings come from the environment (the lanes plugin sets them from /config):
-#   LANES_PROJECT  LANES_LAUNCH=window|background  LANES_PERMISSION_MODE
+#   LANES_PROJECT  LANES_LAUNCH=window|background  LANES_PERMISSION_MODE  LANES_STYLE=auto|developer|planner|beginner
 #   LANES_MID_MODEL LANES_MID_FALLBACK LANES_MID_EFFORT LANES_MID_COMPACT
 #   LANES_LOW_MODEL LANES_LOW_FALLBACK LANES_LOW_EFFORT LANES_LOW_COMPACT
 #
@@ -43,10 +45,12 @@ older_than() {
 slug="${LANES_SLUG:-$(slug_of "$project")}"
 launch="${LANES_LAUNCH:-window}"
 permission_mode="${LANES_PERMISSION_MODE:-auto}"
+# how the person works (/config: work style); auto has no block, main reads it from them
+case "${LANES_STYLE:-auto}" in developer|planner|beginner) style="$LANES_STYLE" ;; *) style="auto" ;; esac
 if [ "$(uname -s)" != "Darwin" ]; then launch="background"; fi
 
 model_of() { case "$1" in mid) echo "${LANES_MID_MODEL:-claude-sonnet-5-5}" ;; *) echo "${LANES_LOW_MODEL:-claude-haiku-5-5}" ;; esac; }
-fallback_of() { case "$1" in mid) echo "${LANES_MID_FALLBACK-claude-opus-5-5}" ;; *) echo "${LANES_LOW_FALLBACK:-}" ;; esac; }
+fallback_of() { case "$1" in mid) echo "${LANES_MID_FALLBACK-claude-opus-5-5}" ;; *) echo "${LANES_LOW_FALLBACK-claude-sonnet-5-5}" ;; esac; }
 effort_of() { case "$1" in mid) echo "${LANES_MID_EFFORT:-high}" ;; *) echo "${LANES_LOW_EFFORT:-medium}" ;; esac; }
 compact_of() { case "$1" in mid) echo "${LANES_MID_COMPACT:-200k}" ;; *) echo "${LANES_LOW_COMPACT:-150k}" ;; esac; }
 
@@ -65,10 +69,12 @@ peer_pid() {
 quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 
 write_prompt() {
-  local tier="$1" file="$state/$1.prompt.md"
-  sed -e "s/{{MID}}/$slug-mid/g" -e "s/{{LOW}}/$slug-low/g" \
-      -e "s/{{MID_MODEL}}/$(model_of mid)/g" -e "s/{{LOW_MODEL}}/$(model_of low)/g" \
-      "$plugin_root/roles/$tier.md" > "$file"
+  local tier="$1" file="$state/$1.prompt.md" styled="$plugin_root/roles/styles/$style.md"
+  # a model can be an ARN (…/application-inference-profile/…): | delimits, and \ & | in a value are escaped
+  esc() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+  { cat "$plugin_root/roles/$tier.md"; if [ -f "$styled" ]; then printf '\n\n'; cat "$styled"; fi; } |
+    sed -e "s|{{MID}}|$(esc "$slug-mid")|g" -e "s|{{LOW}}|$(esc "$slug-low")|g" \
+        -e "s|{{MID_MODEL}}|$(esc "$(model_of mid)")|g" -e "s|{{LOW_MODEL}}|$(esc "$(model_of low)")|g" > "$file"
   if [ -f "$dir/roles/$tier.md" ]; then
     printf '\n\n## This project\n\n' >> "$file"
     cat "$dir/roles/$tier.md" >> "$file"
@@ -100,11 +106,21 @@ start_lane() {
   run="$state/$tier.run.command"
   {
     echo '#!/usr/bin/env bash'
-    printf 'printf "\\033]0;%%s\\007" %s\n' "$(quote "$name")"
+    # the window's title; a background lane has no window, and the escape would land in the output
+    [ "$launch" = "window" ] && printf 'printf "\\033]0;%%s\\007" %s\n' "$(quote "$name")"
     echo "cd $(quote "$project") || exit 1"
     # a Terminal window starts from a fresh login shell: hand it the claude and the config dir this session uses
     echo "export PATH=$(quote "$PATH")"
     if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then echo "export CLAUDE_CONFIG_DIR=$(quote "$CLAUDE_CONFIG_DIR")"; fi
+    # and which provider and region to use (Bedrock, Vertex, Foundry). Never a key: one set only
+    # in the shell stays there, so set it in settings.json `env` or a profile, or run lanes in the background.
+    for v in CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_MANTLE CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY \
+             AWS_REGION AWS_DEFAULT_REGION AWS_PROFILE ANTHROPIC_BEDROCK_REGION_PREFIX \
+             ANTHROPIC_VERTEX_PROJECT_ID CLOUD_ML_REGION ANTHROPIC_FOUNDRY_RESOURCE \
+             ANTHROPIC_BEDROCK_BASE_URL ANTHROPIC_BEDROCK_MANTLE_BASE_URL ANTHROPIC_VERTEX_BASE_URL ANTHROPIC_FOUNDRY_BASE_URL \
+             ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_FABLE_MODEL; do
+      if [ -n "${!v:-}" ]; then echo "export $v=$(quote "${!v}")"; fi
+    done
     echo "export CLAUDE_LANE=$tier"
     echo 'started=$(date +%s)'
     printf 'claude'

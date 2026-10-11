@@ -39,13 +39,13 @@
   <rect class="mid" x="618" y="30" width="6" height="112" rx="3"/>
   <text class="t" x="638" y="58">mid 레인</text>
   <text class="s" x="638" y="84">Sonnet 5.5 (→ Opus 5.5) · high</text>
-  <text class="s" x="638" y="108">테스트 · 검증 · 리뷰</text>
+  <text class="s" x="638" y="108">기획 · 조사 · 리뷰 · 테스트</text>
 
   <rect class="box" x="618" y="248" width="240" height="112" rx="10"/>
   <rect class="low" x="618" y="248" width="6" height="112" rx="3"/>
   <text class="t" x="638" y="276">low 레인</text>
-  <text class="s" x="638" y="302">Haiku 5.5 · medium</text>
-  <text class="s" x="638" y="326">검색 · 스크립트 · 크롤링</text>
+  <text class="s" x="638" y="302">Haiku 5.5 (→ Sonnet 5.5) · medium</text>
+  <text class="s" x="638" y="326">검색 · 자료 수집 · 스크립트</text>
 
   <rect class="box" x="262" y="300" width="244" height="68" rx="10"/>
   <text class="m" x="282" y="328">.claude/lanes/out/T2.md</text>

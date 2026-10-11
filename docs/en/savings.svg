@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" width="880" height="520" role="img" aria-label="What the lanes saved: one afternoon session would have cost $106.05 all on Opus and cost $70.61 with lanes, $35.44 (33%) less. The mid lane's $52.30 became $26.15 and the low lane's $9.81 became $0.52. Kept up for a week, a month and a year: $177, $744 and $8,860 less">
+  <style>
+    .bg { fill: #f6f8fa; }
+    .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+    .h { font: 700 19px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .t { font: 600 15px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .s { font: 13px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .m { font: 13px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .w { font: 600 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #ffffff; }
+    .g { font: 700 14px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1a7f37; }
+    .big { font: 700 22px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1a7f37; }
+    .main { fill: #0969da; } .opus { fill: #0969da; opacity: .38; } .mid { fill: #8250df; } .low { fill: #1a7f37; }
+    .save { fill: none; stroke: #1a7f37; stroke-width: 1.6; stroke-dasharray: 5 4; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; } .card { fill: #161b22; stroke: #30363d; }
+      .h, .t, .m { fill: #e6edf3; } .s { fill: #9198a1; }
+      .g, .big { fill: #3fb950; }
+      .main, .opus { fill: #4493f8; } .mid { fill: #ab7df8; } .low { fill: #3fb950; } .save { stroke: #3fb950; }
+    }
+  </style>
+  <defs>
+    <!-- the bars grow from the left (where motion is not supported they show whole) -->
+    <clipPath id="grow1"><rect x="0" y="0" width="880" height="200"><animate attributeName="width" from="200" to="880" dur="1.1s" fill="freeze"/></rect></clipPath>
+    <clipPath id="grow2"><rect x="0" y="200" width="880" height="110"><animate attributeName="width" values="200;200;880" keyTimes="0;0.29;1" dur="1.4s" fill="freeze"/></rect></clipPath>
+    <clipPath id="grow3"><rect x="0" y="310" width="880" height="180"><animate attributeName="width" values="0;0;880" keyTimes="0;0.42;1" dur="1.9s" fill="freeze"/></rect></clipPath>
+  </defs>
+  <rect class="bg" width="880" height="520" rx="14"/>
+
+  <text class="h" x="24" y="38">How much the lanes save</text>
+  <text class="s" x="24" y="60">Measured: one afternoon session (4.6 h) on a web game · Claude API list prices · each request at its model's rates</text>
+
+  <!-- 1. the whole afternoon -->
+  <text class="t" x="24" y="104">All on Opus</text>
+  <text class="m" x="24" y="122">$106.05</text>
+  <text class="t" x="24" y="160">With lanes</text>
+  <text class="m" x="24" y="178">$70.61</text>
+  <g clip-path="url(#grow1)">
+    <rect class="main" x="200" y="90" width="232" height="34" rx="3"/>
+    <rect class="opus" x="432" y="90" width="328" height="34" rx="3"/>
+    <text class="w" x="210" y="112">Main (edits, commits) $43.94</text>
+    <text class="t" x="442" y="112">The lanes' work, done on Opus $62.11</text>
+    <rect class="main" x="200" y="146" width="232" height="34" rx="3"/>
+    <rect class="mid" x="432" y="146" width="138" height="34" rx="3"/>
+    <rect class="low" x="570" y="146" width="3" height="34"/>
+    <text class="w" x="210" y="168">Main $43.94</text>
+    <text class="w" x="441" y="168">Sonnet $26.15</text>
+    <rect class="save" x="575" y="147" width="185" height="32" rx="3"/>
+    <text class="g" x="588" y="168">Saved $35.44 · 33%</text>
+  </g>
+  <rect class="opus" x="200" y="194" width="12" height="12" rx="2"/><text class="s" x="218" y="205">The lanes' share on Opus</text>
+  <rect class="mid" x="388" y="194" width="12" height="12" rx="2"/><text class="s" x="406" y="205">mid · Sonnet 5.5</text>
+  <rect class="low" x="530" y="194" width="12" height="12" rx="2"/><text class="s" x="548" y="205">low · Haiku 5.5 ($0.52)</text>
+
+  <!-- 2. by lane -->
+  <text class="t" x="24" y="244">mid lane</text>
+  <text class="s" x="24" y="262">Verifying, playtests</text>
+  <text class="t" x="24" y="290">low lane</text>
+  <text class="s" x="24" y="308">Search, regressions</text>
+  <g clip-path="url(#grow2)">
+    <rect class="opus" x="200" y="234" width="276" height="12" rx="2"/>
+    <rect class="mid" x="200" y="250" width="138" height="12" rx="2"/>
+    <text class="m" x="490" y="252">$52.30 → $26.15</text><text class="g" x="636" y="252">−50%</text>
+    <rect class="opus" x="200" y="280" width="52" height="12" rx="2"/>
+    <rect class="low" x="200" y="296" width="3" height="12" rx="1"/>
+    <text class="m" x="266" y="298">$9.81 → $0.52</text><text class="g" x="396" y="298">−95%</text>
+  </g>
+
+  <!-- 3. over time -->
+  <text class="t" x="24" y="348">Over time</text>
+  <text class="s" x="212" y="348">this afternoon as one working day · 5 a week · 21 a month · 250 a year</text>
+  <g clip-path="url(#grow3)">
+    <rect class="card" x="24" y="362" width="264" height="116" rx="10"/>
+    <text class="t" x="42" y="388">1 week</text>
+    <text class="s" x="42" y="412">All on Opus</text><text class="m" x="270" y="412" text-anchor="end">$530</text>
+    <text class="s" x="42" y="432">lanes</text><text class="m" x="270" y="432" text-anchor="end">$353</text>
+    <text class="s" x="42" y="462">Saved</text><text class="big" x="270" y="464" text-anchor="end">−$177</text>
+
+    <rect class="card" x="308" y="362" width="264" height="116" rx="10"/>
+    <text class="t" x="326" y="388">1 month</text>
+    <text class="s" x="326" y="412">All on Opus</text><text class="m" x="554" y="412" text-anchor="end">$2,227</text>
+    <text class="s" x="326" y="432">lanes</text><text class="m" x="554" y="432" text-anchor="end">$1,483</text>
+    <text class="s" x="326" y="462">Saved</text><text class="big" x="554" y="464" text-anchor="end">−$744</text>
+
+    <rect class="card" x="592" y="362" width="264" height="116" rx="10"/>
+    <text class="t" x="610" y="388">1 year</text>
+    <text class="s" x="610" y="412">All on Opus</text><text class="m" x="838" y="412" text-anchor="end">$26,513</text>
+    <text class="s" x="610" y="432">lanes</text><text class="m" x="838" y="432" text-anchor="end">$17,653</text>
+    <text class="s" x="610" y="462">Saved</text><text class="big" x="838" y="464" text-anchor="end">−$8,860</text>
+  </g>
+
+  <text class="s" x="24" y="504">On a plan: about 1.5× the work from the same limits · Not counted: what the lanes read that main never carried</text>
+</svg>

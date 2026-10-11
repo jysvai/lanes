@@ -1,8 +1,12 @@
 {
   "name": "lanes",
-  "version": "0.2.1",
-  "description": "On-demand lane sessions beside your main Claude Code session: a mid lane for tests and verification, a low lane for search, scripts and crawling. Status line, /lane, and tools the main model calls.",
-  "author": { "name": "jysvai" },
+  "version": "0.3.0",
+  "description": "On-demand lane sessions beside your main Claude Code session, from the first idea to release: a mid lane for side work that needs judgement (research, plans, reviews, tests), a low lane for search, scripts and crawling. Works on the Claude API, Amazon Bedrock, Vertex AI and Foundry. Status line, /lane, and tools the main model calls.",
+  "author": { "name": "jysvai", "email": "yunseok1312@gmail.com", "url": "https://github.com/jysvai" },
+  "homepage": "https://github.com/jysvai/lanes",
+  "repository": "https://github.com/jysvai/lanes",
+  "license": "Apache-2.0",
+  "keywords": ["lanes", "subagents", "sonnet", "haiku", "cost", "tokens", "bedrock", "vertex"],
   "userConfig": {
     "main_model": {
       "type": "string",
@@ -26,7 +30,7 @@
     "mid_model": {
       "type": "string",
       "title": "Mid lane model",
-      "description": "Tests, verification, reviews of main's changes.",
+      "description": "Side work that needs judgement: research, plans and drafts, reviews, tests. Write it the Claude API way (claude-sonnet-5-5) and it becomes the Bedrock or Mantle ID, or the model you pinned with ANTHROPIC_DEFAULT_SONNET_MODEL; a provider ID or ARN goes through as is. Sonnet 4 and Haiku 4 are never used.",
       "default": "claude-sonnet-5-5"
     },
     "mid_fallback": {
@@ -45,14 +49,14 @@
     "low_model": {
       "type": "string",
       "title": "Low lane model",
-      "description": "Search, listing, scripts, crawling, notes.",
+      "description": "Search, listing, collecting references, scripts, crawling, notes. Named the same way as the mid lane's model; Sonnet 4 and Haiku 4 are never used.",
       "default": "claude-haiku-5-5"
     },
     "low_fallback": {
       "type": "string",
       "title": "Low lane fallback model",
-      "description": "Second choice for the low lane; empty for none.",
-      "default": ""
+      "description": "Second choice for the low lane when its model is overloaded or out of reach; empty for none.",
+      "default": "claude-sonnet-5-5"
     },
     "low_effort": {
       "type": "string",
@@ -74,6 +78,13 @@
       "description": "Passed to each lane as --permission-mode. No one answers a prompt in a background lane, so where auto mode isn't available, pick dontAsk with an allowlist, or manual with lanes in windows.",
       "default": "auto",
       "options": ["auto", "acceptEdits", "dontAsk", "manual", "bypassPermissions"]
+    },
+    "work_style": {
+      "type": "string",
+      "title": "How you work",
+      "description": "Tunes how main splits the work and how the lanes report. auto: main reads it from how you work. developer: code, tests, diffs. planner: research, options and drafts for ideas, products and documents. beginner: plain words, one step at a time, and the lanes check the work for you.",
+      "default": "auto",
+      "options": ["auto", "developer", "planner", "beginner"]
     },
     "idle_minutes": {
       "type": "number",

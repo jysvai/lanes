@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470" width="880" height="470" role="img" aria-label="서브에이전트 위임과 lanes 비교: 서브에이전트는 일 하나를 받아 답 전체를 메인 문맥에 넣고 사라지며, /clear나 재시작 뒤에는 결과가 남지 않는다. 레인은 따로 떠 있는 세션이라 짧은 답과 보고서 파일만 돌려주고, 이어 묻기를 받고, 메인이 재시작해도 다음 메인이 답을 받는다">
+  <style>
+    .bg { fill: #f6f8fa; }
+    .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+    .t { font: 600 17px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1f2328; }
+    .s { font: 13px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .lab { font: 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #57606a; }
+    .row { font: 600 12.5px ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; fill: #57606a; }
+    .m { font: 12.5px ui-monospace, "Cascadia Mono", Menlo, Consolas, "Apple SD Gothic Neo", "Malgun Gothic", monospace; fill: #1f2328; }
+    .w { font: 600 11px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #ffffff; }
+    .wire { fill: none; stroke: #8c959f; stroke-width: 1.5; }
+    .cut { stroke: #cf222e; stroke-width: 1.4; stroke-dasharray: 4 4; }
+    .cutlab { font: 600 12px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #cf222e; }
+    .main { fill: #0969da; } .main2 { fill: #0969da; opacity: .45; } .mid { fill: #8250df; } .low { fill: #1a7f37; } .sub { fill: #8c959f; }
+    .gone { font: 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #cf222e; }
+    .good { font: 600 12.5px -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; fill: #1a7f37; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; } .card { fill: #161b22; stroke: #30363d; }
+      .t, .m { fill: #e6edf3; } .s, .lab, .row { fill: #9198a1; } .wire { stroke: #6e7681; }
+      .main { fill: #4493f8; } .main2 { fill: #4493f8; opacity: .45; } .mid { fill: #ab7df8; } .low { fill: #3fb950; } .sub { fill: #6e7681; }
+      .cut { stroke: #f85149; } .cutlab, .gone { fill: #f85149; } .good { fill: #3fb950; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8c959f"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="880" height="470" rx="14"/>
+
+  <!-- subagents -->
+  <rect class="card" x="16" y="16" width="848" height="204" rx="12"/>
+  <text class="t" x="36" y="46">서브에이전트 위임</text>
+  <text class="s" x="196" y="46">일 하나를 받아 답 하나를 돌려주고 사라져요</text>
+  <text class="row" x="120" y="111" text-anchor="end">main</text>
+  <text class="row" x="120" y="164" text-anchor="end">sub</text>
+  <rect class="main" x="140" y="100" width="440" height="14" rx="7"/>
+  <rect class="main2" x="620" y="100" width="220" height="14" rx="7"/>
+  <rect class="sub" x="200" y="153" width="110" height="14" rx="7"/>
+  <rect class="sub" x="460" y="153" width="110" height="14" rx="7"/>
+  <path class="wire" d="M200 116 L200 150" marker-end="url(#a)"/>
+  <path class="wire" d="M310 151 L310 118" marker-end="url(#a)"/>
+  <text class="lab" x="318" y="140">답 전체가 메인에 쌓임</text>
+  <path class="wire" d="M460 116 L460 150" marker-end="url(#a)"/>
+  <text class="lab" x="460" y="190">처음부터 다시 읽음</text>
+  <line class="cut" x1="600" y1="80" x2="600" y2="204"/>
+  <text class="cutlab" x="606" y="88">/clear · 재시작</text>
+  <text class="gone" x="630" y="142">앞에서 받은 결과는 없음</text>
+  <text class="lab" x="630" y="162">다시 시키면 처음부터</text>
+
+  <!-- lanes -->
+  <rect class="card" x="16" y="236" width="848" height="218" rx="12"/>
+  <text class="t" x="36" y="266">lanes</text>
+  <text class="s" x="96" y="266">따로 떠 있는 세션이라, 메인이 바뀌어도 일과 기억이 이어져요</text>
+  <text class="row" x="120" y="305" text-anchor="end">main</text>
+  <text class="row" x="120" y="350" text-anchor="end">mid</text>
+  <text class="row" x="120" y="395" text-anchor="end">low</text>
+  <rect class="main" x="140" y="294" width="440" height="14" rx="7"/>
+  <rect class="main2" x="620" y="294" width="220" height="14" rx="7"/>
+  <rect class="mid" x="190" y="339" width="650" height="14" rx="7"/>
+  <text class="w" x="612" y="350">Sonnet · 하던 일과 기억이 이어짐</text>
+  <rect class="low" x="250" y="384" width="300" height="14" rx="7"/>
+  <text class="w" x="262" y="395">Haiku · 검색 · 수집</text>
+  <text class="lab" x="612" y="395">20분 쉬면 스스로 닫힘</text>
+  <line class="cut" x1="600" y1="280" x2="600" y2="410"/>
+  <text class="cutlab" x="606" y="288">/clear · 재시작</text>
+  <path class="wire" d="M190 310 L190 336" marker-end="url(#a)"/>
+  <text class="lab" x="164" y="328">T1</text>
+  <path class="wire" d="M250 355 L250 381" marker-end="url(#a)"/>
+  <text class="lab" x="256" y="373">T1a</text>
+  <path class="wire" d="M330 337 L330 311" marker-end="url(#a)"/>
+  <text class="lab" x="336" y="328">4줄 답 + 보고서 파일</text>
+  <path class="wire" d="M470 310 L470 336" marker-end="url(#a)"/>
+  <text class="lab" x="476" y="328">이어 묻기 (T1 이어서)</text>
+  <path class="wire" d="M700 337 L700 311" marker-end="url(#a)"/>
+  <text class="good" x="708" y="328">다음 메인이 받음</text>
+  <text class="m" x="140" y="436">notes/index.md</text>
+  <text class="s" x="262" y="436">레인이 찾아 둔 프로젝트 지도 · 새 메인은 시작할 때 이 지도를 받아요</text>
+</svg>
