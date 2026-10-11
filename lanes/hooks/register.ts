@@ -30,6 +30,8 @@ type LaneState = {
   model: string
   sessionId: string
   task: string
+  /** tasks that arrived while the lane was on `task`, oldest first */
+  next?: string[]
   last: string
   turns: number
   tokens: { input: number; output: number; cacheRead: number }
@@ -97,6 +99,7 @@ const firstLine = (s: string) => (s.split('\n').map(line => line.trim()).find(Bo
 
 // "[T7] goal" or "[U3] goal" anywhere in a message names the task
 const taskLine = (s: string) => (s.match(/\[[A-Z]\d+[a-z]?\][^\n<]*/)?.[0] ?? firstLine(s)).slice(0, 90)
+const isTask = (s: string) => /\[[A-Z]\d+[a-z]?\]/.test(s)
 
 const ago = (ms: number) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`)
 
@@ -192,7 +195,9 @@ function describe(t: Tier, peer: Peer | undefined, s: LaneState | undefined, now
   if (peer === undefined) return `${shortName(t)} off${more}`
   if (s === undefined || s.state !== 'busy') return `${shortName(t)} ○${more}`
 
-  return `${shortName(t)} ● ${taskId(s.task)} ${ago(now - s.since)}${more}`
+  const after = waiting + (s.next?.length ?? 0)
+
+  return `${shortName(t)} ● ${taskId(s.task)} ${ago(now - s.since)}${after > 0 ? ` +${after}` : ''}`
 }
 
 async function statusLine($: EngineInterface) {
@@ -224,6 +229,7 @@ async function report($: EngineInterface) {
       return [
         head + ping,
         `  task: ${s.task || '-'}`,
+        ...(s.state === 'busy' && s.next?.length ? [`  next: ${s.next.map(taskId).join(', ')}`] : []),
         `  last: ${s.last || '-'}`,
         `  ${s.turns} turns · in ${k(s.tokens.input)} · cache ${k(s.tokens.cacheRead)} · out ${k(s.tokens.output)}`,
       ].join('\n')
@@ -374,7 +380,34 @@ async function markBusy($: EngineInterface, from: string) {
   me.state = 'busy'
   me.since = await $.clock.now()
   me.task = pending || taskLine(from) || '(continuing)'
+  me.next = []
   pending = ''
+  await save($)
+}
+
+// A task that lands while the lane is on another one waits its turn in the state.
+async function queueBehind($: EngineInterface, message: string) {
+  if (me === undefined) return
+  if (!isTask(me.task)) {
+    me.task = taskLine(message)
+  } else if (isTask(message)) {
+    me.next = [...(me.next ?? []), taskLine(message)]
+  } else {
+    return
+  }
+  await save($)
+}
+
+// The lane's reply "[T7 PASS] ..." ends T7; the next waiting task becomes current.
+async function noteReply($: EngineInterface, message: unknown) {
+  if (me === undefined || typeof message !== 'string') return
+  const id = message.match(/^\s*\[([A-Z]\d+[a-z]?)[\s\]]/)?.[1]
+  if (id === undefined || id !== taskId(me.task)) return
+  const [head, ...rest] = me.next ?? []
+  if (head === undefined) return
+  me.task = head
+  me.next = rest
+  me.since = await $.clock.now()
   await save($)
 }
 
@@ -382,6 +415,7 @@ async function markIdle($: EngineInterface, answer: string, usage: Usage | undef
   if (me === undefined) return
   me.state = 'idle'
   me.since = await $.clock.now()
+  me.next = []
   me.last = firstLine(answer)
   me.turns += 1
   if (usage !== undefined) {
@@ -498,7 +532,7 @@ export const register: Register = (on, options) => {
     if (tier !== undefined) {
       // A message that lands mid-turn joins that turn and raises no turn.start.
       if (me?.state === 'busy') {
-        await markBusy($, e.text)
+        await queueBehind($, e.text)
       } else {
         pending = taskLine(e.text)
       }
@@ -543,6 +577,13 @@ export const register: Register = (on, options) => {
 
     return { result: await dispatch($, input.lane, input.task) }
   }).catch(failed)
+
+  on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
+    const sent = await next(e)
+    if (tier !== undefined) await noteReply($, (e as unknown as { message?: unknown }).message)
+
+    return sent
+  })
 
   on('tool.call', { tool: 'mcp__lanes__status' }, async $ => ({ result: await report($) })).catch(failed)
 

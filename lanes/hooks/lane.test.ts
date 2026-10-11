@@ -1,0 +1,55 @@
+import { expect, mock, test } from 'claude-code/testing'
+import type { On } from 'claude-code'
+
+// The low lane of project "demo", writing its state to files.
+function ground(on: On, files: Record<string, string>) {
+  mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', CLAUDE_LANE: 'low' })
+  mock.clock(on)
+  const key = (p: string) => p.replaceAll('\\', '/')
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('fs.exists', ($, e) => ({ value: key(e.path) in files }))
+  on('fs.list', () => ({ value: [] }))
+  on('fs.read', ($, e) => (key(e.path) in files ? { value: files[key(e.path)] ?? '' } : { deny: 'no such file' }))
+  on('fs.write', ($, e) => {
+    files[key(e.path)] = e.text
+
+    return { value: undefined }
+  })
+  on('session.model', () => ({ value: 'claude-haiku-5-5' }))
+  on('session.id', () => ({ value: 'lane-1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('turn.start', ($, e) => e as never)
+  on('session.receive', ($, e) => ({ text: e.text }) as never)
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+}
+
+const state = (files: Record<string, string>) => JSON.parse(files['C:/work/demo/.claude/lanes/state/low.json'] ?? '{}')
+
+test('a task that arrives mid-turn waits behind the current one, and the reply moves the lane on to it', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files\nout: .claude/lanes/out/T7.md' } as never)
+  await $.session.receive({ origin: { kind: 'peer' }, text: '[T8] list the tests\nout: .claude/lanes/out/T8.md' } as never)
+
+  expect(state(files).task.startsWith('[T7]')).toBe(true)
+  expect(state(files).next).toEqual(['[T8] list the tests'])
+
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] 12 files\n→ .claude/lanes/out/T7.md' } as never)
+
+  expect(state(files).task.startsWith('[T8]')).toBe(true)
+  expect(state(files).next).toEqual([])
+})
+
+test('a progress ping or a sub-task send leaves the current task alone', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files' } as never)
+  await $.session.receive({ origin: { kind: 'peer' }, text: '[T8] list the tests' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[progress] T7 2/3 done' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-mid', message: '[T7a] grep the logs' } as never)
+
+  expect(state(files).task.startsWith('[T7]')).toBe(true)
+  expect(state(files).next).toEqual(['[T8] list the tests'])
+})

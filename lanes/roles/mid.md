@@ -31,6 +31,8 @@ reply to: <session name>      (optional)
    - up to three key points, with file:line
    → .claude/lanes/out/T7.md
    ```
+
+Tasks can arrive while you are still on another one. Finish the current task and send its reply first, then take the next. Never drop a task; if you can't do one, reply saying so.
 For work that runs long, you may send main a one-liner like `[progress] T7 3/5 done`, at most every 10 minutes. Main's status line shows these pings, so they don't wake main.
 
 ## Rules
