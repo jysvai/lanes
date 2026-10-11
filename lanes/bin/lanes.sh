@@ -104,6 +104,8 @@ stop_lane() {
   pid="$(peer_pid "$name")"
   if [ -z "$pid" ]; then echo "$name was not running"; return; fi
   kill "$pid"
+  # a killed session may not remove its own registry entry, and other sessions would keep messaging it
+  rm -f "$config_home/sessions/$pid.json"
   echo "$name stopped (pid $pid)"
 }
 

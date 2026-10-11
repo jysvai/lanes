@@ -326,8 +326,11 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
   const queued = await readQueue($, t)
   if (isLive && state?.state !== 'busy' && queued.length === 0) {
     const sent = await $.session.send({ to: name, text: body })
+    if (sent.isDelivered) return `${id} → ${name}`
+    // A registry entry left behind by a lane that was killed: open a fresh lane for the task.
+    await $.fs.write(queueFile(t), JSON.stringify([body]))
 
-    return sent.isDelivered ? `${id} → ${name}` : `${id} not delivered to ${name}: ${sent.reason}`
+    return `${id} queued for ${name}; ${await runScript($, 'start', t)}. The lane picks it up when it opens.`
   }
   await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
   if (isLive) return `${id} queued for ${name} (${queued.length + 1} waiting); it goes over when ${taskId(state?.task ?? '')} is done.`

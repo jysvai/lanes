@@ -106,6 +106,8 @@ function Stop-Lane($tier) {
   $peer = Get-Peer $name
   if (-not $peer) { return "$name was not running" }
   & taskkill.exe /PID $peer.pid /T /F | Out-Null
+  # a killed session can't remove its own registry entry, and other sessions would keep messaging it
+  Remove-Item -LiteralPath (Join-Path (Join-Path $ConfigHome 'sessions') "$($peer.pid).json") -ErrorAction SilentlyContinue
   return "$name stopped (pid $($peer.pid))"
 }
 

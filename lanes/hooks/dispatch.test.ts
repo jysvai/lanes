@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string }, files: Record<string, string> = {}) {
+function ground(on: On, sent: { to?: unknown; text?: string }, files: Record<string, string> = {}, delivered = true) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' })
   const clock = mock.clock(on)
   files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-low', sessionId: 'lane-1' })
@@ -30,8 +30,9 @@ function ground(on: On, sent: { to?: unknown; text?: string }, files: Record<str
     sent.to = e.to
     sent.text = e.text
 
-    return { isDelivered: true }
+    return delivered ? { isDelivered: true } : { isDelivered: false, reason: 'no agent named demo-low is reachable' }
   })
+  on('process.run', () => ({ value: { stdout: 'demo-low starting', stderr: '', exitCode: 0 } }) as never)
 
   return clock
 }
@@ -85,6 +86,17 @@ test('a task for a busy lane waits in its queue and goes over once the lane is i
   expect(sent.to).toBe('demo-low')
   expect(sent.text?.startsWith('[T1] count the files')).toBe(true)
   expect(files['C:/work/demo/.claude/lanes/state/low.queue.json']).toBe('[]')
+})
+
+test('a lane killed without clearing its registry entry gets a fresh lane, and the task is not lost', async ($, on) => {
+  const sent: { to?: unknown; text?: string } = {}
+  const files: Record<string, string> = {}
+  ground(on, sent, files, false)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the files' } as never)
+
+  expect(ran.text).toBe('T1 queued for demo-low; demo-low starting. The lane picks it up when it opens.')
+  expect(JSON.parse(files['C:/work/demo/.claude/lanes/state/low.queue.json'] ?? '[]')[0].startsWith('[T1] count the files')).toBe(true)
 })
 
 test('the next task gets the next number', async ($, on) => {
