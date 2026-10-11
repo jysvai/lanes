@@ -2,13 +2,11 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string }) {
+function ground(on: On, sent: { to?: unknown; text?: string }, files: Record<string, string> = {}) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' })
   const clock = mock.clock(on)
-  const files: Record<string, string> = {
-    'C:/Users/me/.claude/sessions/11.json': JSON.stringify({ pid: 11, name: 'demo-low', sessionId: 'lane-1' }),
-    'C:/Users/me/.claude/sessions/22.json': JSON.stringify({ pid: 22, name: 'demo-main', sessionId: 'main-1' }),
-  }
+  files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-low', sessionId: 'lane-1' })
+  files['C:/Users/me/.claude/sessions/22.json'] = JSON.stringify({ pid: 22, name: 'demo-main', sessionId: 'main-1' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.exists', () => ({ value: true }))
   // the engine hands hooks native paths (backslashes on Windows)
@@ -68,6 +66,25 @@ test('/lane <request> hands the request to the main model to run across the lane
   expect(submitted[0]).toContain('demo-low')
   expect(submitted[0]).toContain('demo-mid')
   expect(sent.to).toBeUndefined()
+})
+
+test('a task for a busy lane waits in its queue and goes over once the lane is idle', async ($, on) => {
+  const sent: { to?: unknown; text?: string } = {}
+  const files: Record<string, string> = {}
+  const clock = ground(on, sent, files)
+  files['C:/work/demo/.claude/lanes/state/low.json'] = JSON.stringify({ tier: 'low', state: 'busy', since: 0, task: '[T9] earlier work' })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the files' } as never)
+
+  expect(ran.text).toBe('T1 queued for demo-low (1 waiting); it goes over when T9 is done.')
+  expect(sent.to).toBeUndefined()
+
+  files['C:/work/demo/.claude/lanes/state/low.json'] = JSON.stringify({ tier: 'low', state: 'idle', since: 0, task: '[T9] earlier work' })
+  await clock.advance(15_000)
+
+  expect(sent.to).toBe('demo-low')
+  expect(sent.text?.startsWith('[T1] count the files')).toBe(true)
+  expect(files['C:/work/demo/.claude/lanes/state/low.queue.json']).toBe('[]')
 })
 
 test('the next task gets the next number', async ($, on) => {

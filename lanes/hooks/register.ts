@@ -186,19 +186,22 @@ const shortName = (t: Tier) => cfg[t].model.match(/opus|sonnet|haiku|fable/)?.[0
 // "T7" out of "[T7] goal"
 const taskId = (task: string) => task.match(/\[([A-Z]\d+[a-z]?)\]/)?.[1] ?? '…'
 
-// One short cell per lane: "sonnet ● T7 3m", "haiku ○", "haiku off"
-function describe(t: Tier, peer: Peer | undefined, s: LaneState | undefined, now: number) {
-  if (peer === undefined) return `${shortName(t)} off`
-  if (s === undefined || s.state !== 'busy') return `${shortName(t)} ○`
+// One short cell per lane: "sonnet ● T7 3m +1", "haiku ○", "haiku off"
+function describe(t: Tier, peer: Peer | undefined, s: LaneState | undefined, now: number, waiting = 0) {
+  const more = waiting > 0 ? ` +${waiting}` : ''
+  if (peer === undefined) return `${shortName(t)} off${more}`
+  if (s === undefined || s.state !== 'busy') return `${shortName(t)} ○${more}`
 
-  return `${shortName(t)} ● ${taskId(s.task)} ${ago(now - s.since)}`
+  return `${shortName(t)} ● ${taskId(s.task)} ${ago(now - s.since)}${more}`
 }
 
 async function statusLine($: EngineInterface) {
   if (!(await $.fs.exists(`${dir}/state`))) return undefined
   const now = await $.clock.now()
   const live = await peers($)
-  const parts = await Promise.all(TIERS.map(async t => describe(t, live.get(laneName(t)), await readLane($, t), now)))
+  const parts = await Promise.all(
+    TIERS.map(async t => describe(t, live.get(laneName(t)), await readLane($, t), now, (await readQueue($, t)).length)),
+  )
 
   return `lanes  ${parts.join(' · ')}`
 }
@@ -301,21 +304,48 @@ async function readQueue($: EngineInterface, t: Tier): Promise<string[]> {
   }
 }
 
-// Hands a task to a lane; a closed lane is opened and picks the task up from its queue.
+// Hands a task to a lane. An idle lane gets it now; a busy lane gets it from the
+// queue once it is idle again (pump), and a closed lane is opened and takes the
+// queue when it starts.
 async function dispatch($: EngineInterface, t: Tier, task: string) {
   const id = await nextTaskId($)
   const from = await whoAmI($)
   const body = `[${id}] ${task}\nout: .claude/lanes/out/${id}.md${from ? `\nreply to: ${from}` : ''}`
   const name = laneName(t)
-  if ((await peers($)).has(name)) {
+  const isLive = (await peers($)).has(name)
+  const state = await readLane($, t)
+  const queued = await readQueue($, t)
+  if (isLive && state?.state !== 'busy' && queued.length === 0) {
     const sent = await $.session.send({ to: name, text: body })
 
     return sent.isDelivered ? `${id} → ${name}` : `${id} not delivered to ${name}: ${sent.reason}`
   }
-  await $.fs.write(queueFile(t), JSON.stringify([...(await readQueue($, t)), body]))
+  await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
+  if (isLive) return `${id} queued for ${name} (${queued.length + 1} waiting); it goes over when ${taskId(state?.task ?? '')} is done.`
   const opened = await runScript($, 'start', t)
 
   return `${id} queued for ${name}; ${opened}. The lane picks it up when it opens.`
+}
+
+// Main side, every poll: hand the next queued task to a live lane that has been
+// idle a few seconds (a lane that just opened takes its queue itself first).
+async function pump($: EngineInterface) {
+  const now = await $.clock.now()
+  const live = await peers($)
+  for (const t of TIERS) {
+    const queued = await readQueue($, t)
+    if (queued.length === 0 || !live.has(laneName(t))) continue
+    const s = await readLane($, t)
+    if (s === undefined || s.state !== 'idle' || now - s.since < 10_000) continue
+    const [next = '', ...rest] = queued
+    await $.fs.write(queueFile(t), JSON.stringify(rest))
+    await $.session.send({ to: laneName(t), text: next })
+  }
+}
+
+async function poll($: EngineInterface) {
+  await pump($)
+  await refresh($)
 }
 
 async function drainQueue($: EngineInterface) {
@@ -419,7 +449,7 @@ async function startMain($: EngineInterface) {
     inputSchema: { type: 'object', properties: { lane: { ...lane, enum: ['mid', 'low', 'all'] } }, required: ['lane'] },
   })
   await refresh($)
-  $.clock.every(POLL_MS, () => void refresh($))
+  $.clock.every(POLL_MS, () => void poll($))
 }
 
 async function notePing($: EngineInterface, ping: string, from: string | undefined) {
