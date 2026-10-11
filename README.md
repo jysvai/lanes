@@ -28,7 +28,14 @@ Windows · macOS 공통, Claude Code 프롬프트에서:
 /plugin install lanes --marketplace jysvai/lanes
 ```
 
-user 범위를 고르면 모든 프로젝트의 모든 세션에서 켜집니다.
+user 범위를 고르면 모든 프로젝트의 모든 세션에서 켜집니다. 터미널에서 설치할 때는 이렇게 합니다:
+
+```
+claude plugin marketplace add jysvai/lanes
+claude plugin install lanes@claude-mod --scope user
+```
+
+"설정값을 아직 정하지 않았다"는 안내가 떠도 아래 기본값으로 동작해요.
 
 ## 쓰는 법
 
