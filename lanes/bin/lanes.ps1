@@ -12,6 +12,8 @@ param(
   [ValidateSet('start', 'stop', 'status')][string]$Verb = 'status',
   [ValidateSet('all', 'mid', 'low')][string]$Which = 'all',
   [string]$Project = (Get-Location).Path,
+  [string]$Name = '',
+  [string]$PluginRoot = '',
   [string]$MidModel = 'claude-sonnet-5-5',
   [string]$MidFallback = 'claude-opus-5-5',
   [string]$MidEffort = 'high',
@@ -24,13 +26,28 @@ param(
   [string]$PermissionMode = 'auto'
 )
 $ErrorActionPreference = 'Stop'
-$PluginRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+# The plugin runs this script's text as a script block (see psCommand in register.ts),
+# which has no path of its own to find the plugin by.
+if (-not $PluginRoot) { $PluginRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
 $Project = (Resolve-Path -LiteralPath $Project).Path
 $Dir = Join-Path $Project '.claude\lanes'
 $State = Join-Path $Dir 'state'
 $ConfigHome = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }
-$Slug = ((Split-Path -Leaf $Project).ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
-if (-not $Slug) { $Slug = 'project' }
+$MinClaude = [version]'2.1.296'
+
+# The name the lanes go by: the folder name and a tag from the full path, so two
+# projects with the same folder name (or none in ASCII) never share lanes. The tag is
+# FNV-1a over the path with forward slashes, ASCII lowercased, as register.ts computes it.
+function Get-Slug($path) {
+  $key = [regex]::Replace(($path -replace '\\', '/').TrimEnd('/'), '[A-Z]', { param($m) $m.Value.ToLowerInvariant() })
+  [uint64]$h = 2166136261
+  foreach ($b in [Text.Encoding]::UTF8.GetBytes($key)) { $h = (($h -bxor $b) * 16777619) % 4294967296 }
+  $base = ((Split-Path -Leaf $path).ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+  if (-not $base) { $base = 'project' }
+  return "$base-$(('{0:x8}' -f $h).Substring(0, 4))"
+}
+
+$Slug = if ($Name) { $Name } else { Get-Slug $Project }
 $Tiers = if ($Which -eq 'all') { @('mid', 'low') } else { @($Which) }
 
 $Cfg = @{
@@ -50,7 +67,9 @@ function Get-Peer($name) {
   return $null
 }
 
-function Quote($s) { "'" + ($s -replace "'", "''") + "'" }
+# PowerShell reads the curly single quotes (U+2018 to U+201B) as quotes too, so they double as well.
+$Quotes = "['" + (-join [char[]](0x2018..0x201B)) + "]"
+function Quote($s) { "'" + ($s -replace $Quotes, '$0$0') + "'" }
 
 function Write-Prompt($tier) {
   $text = Get-Content -LiteralPath (Join-Path $PluginRoot "roles\$tier.md") -Raw -Encoding UTF8
@@ -70,14 +89,16 @@ function Start-Lane($tier) {
   $peer = Get-Peer $name
   if ($peer) { return "$name already running (pid $($peer.pid))" }
   $c = $Cfg[$tier]
+  # the temp folder is where a lane's scratch files go (the repo is main's), so it is a working directory too
   $argv = @('-n', $name, '--model', $c.Model, '--effort', $c.Effort, '--permission-mode', $PermissionMode,
-    '--append-system-prompt-file', (Write-Prompt $tier))
+    '--append-system-prompt-file', (Write-Prompt $tier), '--add-dir', [IO.Path]::GetTempPath().TrimEnd('\'))
   if ($c.Fallback -and $c.Fallback -ne 'none') { $argv += @('--fallback-model', $c.Fallback) }
   if ($c.Compact) { $argv += @('--autocompact', $c.Compact) }
   # Lanes report; code edits, commits, pushes and deploys stay with the main session.
-  $argv += @('--disallowedTools', 'Edit', 'NotebookEdit', 'Bash(git commit:*)', 'Bash(git push:*)',
-    'Bash(git reset:*)', 'Bash(git checkout:*)', 'PowerShell(git commit:*)', 'PowerShell(git push:*)',
-    'PowerShell(git reset:*)', 'PowerShell(git checkout:*)')
+  # (register.ts also refuses a lane's Write inside the repo outside .claude/lanes.)
+  $git = @('commit', 'push', 'reset', 'checkout', 'restore', 'stash', 'clean', 'switch', 'rebase', 'merge',
+    'cherry-pick', 'revert', 'apply', 'am', 'rm', 'mv')
+  $argv += @('--disallowedTools', 'Edit', 'NotebookEdit') + ($git | ForEach-Object { "Bash(git ${_}:*)", "PowerShell(git ${_}:*)" })
   if ($Launch -eq 'background') { $argv = @('--bg') + $argv }
 
   $run = Join-Path $State "$tier.run.ps1"
@@ -86,17 +107,19 @@ function Start-Lane($tier) {
     "Set-Location -LiteralPath $(Quote $Project)",
     "`$env:CLAUDE_LANE = $(Quote $tier)",
     "`$started = Get-Date",
-    "& claude $(($argv | ForEach-Object { Quote $_ }) -join ' ')"
+    "& $(Quote $Claude) $(($argv | ForEach-Object { Quote $_ }) -join ' ')"
   )
   if ($Launch -eq 'window') {
     $lines += "if (((Get-Date) - `$started).TotalSeconds -lt 20) { Read-Host 'claude exited early - press Enter to close' }"
   }
   [IO.File]::WriteAllText($run, ($lines -join "`r`n") + "`r`n", (New-Object Text.UTF8Encoding $true))
 
+  # Run as a script block, not a file, so a managed PC's execution policy doesn't refuse it.
+  $load = "& ([scriptblock]::Create([IO.File]::ReadAllText($(Quote $run), [Text.Encoding]::UTF8)))"
   if ($Launch -eq 'window') {
-    Start-Process powershell.exe -WorkingDirectory $Project -ArgumentList @('-ExecutionPolicy', 'Bypass', '-File', "`"$run`"") | Out-Null
+    Start-Process powershell.exe -WorkingDirectory $Project -ArgumentList "-Command `"$load`"" | Out-Null
   } else {
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $run
+    & powershell.exe -NoProfile -Command $load
   }
   return "$name starting ($($c.Model), effort $($c.Effort)$(if ($c.Fallback -and $c.Fallback -ne 'none') { ", fallback $($c.Fallback)" }))"
 }
@@ -105,7 +128,8 @@ function Stop-Lane($tier) {
   $name = "$Slug-$tier"
   $peer = Get-Peer $name
   if (-not $peer) { return "$name was not running" }
-  & taskkill.exe /PID $peer.pid /T /F | Out-Null
+  # quietly: the lane's child processes that already exited would fill the output with errors
+  & cmd.exe /c "taskkill /PID $($peer.pid) /T /F >nul 2>&1"
   # a killed session can't remove its own registry entry, and other sessions would keep messaging it
   Remove-Item -LiteralPath (Join-Path (Join-Path $ConfigHome 'sessions') "$($peer.pid).json") -ErrorAction SilentlyContinue
   return "$name stopped (pid $($peer.pid))"
@@ -114,6 +138,23 @@ function Stop-Lane($tier) {
 New-Item -ItemType Directory -Force -Path $State, (Join-Path $Dir 'out'), (Join-Path $Dir 'notes') | Out-Null
 $ignore = Join-Path $Dir '.gitignore'
 if (-not (Test-Path -LiteralPath $ignore)) { Set-Content -LiteralPath $ignore -Value '*' -Encoding ASCII }
+
+# A lane window that can't find claude, or a claude too old for the flags below, only
+# says "exited early"; say why here instead, where the main session reads the output.
+if ($Verb -eq 'start') {
+  # claude as a program (claude.exe, or npm's claude.cmd), never npm's claude.ps1 shim,
+  # which PowerShell finds first and an execution policy that refuses script files refuses
+  $Claude = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in '.exe', '.cmd', '.bat' } | Select-Object -First 1 -ExpandProperty Source
+  if (-not $Claude) {
+    'lanes: claude is not on PATH in PowerShell, so no lane can open. Install Claude Code there, or add it to PATH.'
+    exit 1
+  }
+  $found = [regex]::Match((& $Claude --version | Out-String), '\d+\.\d+\.\d+').Value
+  if ($found -and [version]$found -lt $MinClaude) {
+    "lanes: Claude Code $found is older than $MinClaude, the version lanes is tested on. If a lane closes right away, run claude update."
+  }
+}
 
 foreach ($tier in $Tiers) {
   switch ($Verb) {

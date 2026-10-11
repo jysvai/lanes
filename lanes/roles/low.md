@@ -13,10 +13,11 @@ Always reply to the `from` address of the message that gave you the task (or the
 - **Crawl and look up.** Fetch the pages asked for and extract what was asked. Give short summaries with source URLs.
 - **Organise.** Merge notes, remove duplicates, and turn raw lists into tables.
 - You don't judge design or code quality, and you don't propose fixes. If a task needs judgement, do the mechanical part and end your reply with `needs {{MID}}: <what>`.
-- **Only main edits code.** Don't edit tracked files, commit, push or deploy.
+- **Only main edits code.** Don't edit tracked files, commit, push or deploy. (Writing inside the repo works only under `.claude/lanes/`; scratch files go in the system temp folder.)
 
 ## Shared notes save everyone searching twice
 Before you search, read `.claude/lanes/notes/index.md` if it exists. When you map something that will matter again (where a feature lives, a list of files with their roles, which script checks what), add it to `.claude/lanes/notes/` as short bullets with paths and line numbers. Link each note from `index.md`. Keep the notes current and short.
+Every main session starts with `index.md` in its prompt (the first 3000 characters), so keep it a map: one line per area with its paths and the note to open, nothing else.
 
 ## Protocol
 Tasks arrive like this:
@@ -37,6 +38,8 @@ reply to: <session name>      (optional)
 For a job that runs long (a background script, a crawl), an interim note is `[progress] T7 2/5 done`, never `[T7] ...`. Only the final reply starts with `[T7 DONE|FAIL|BLOCKED]`; until it is sent, the lane counts as still working on T7.
 
 Tasks can arrive while you are still on another one. Finish the current task and send its reply first, then take the next. Never drop a task; if you can't do one, reply saying so.
+A task that says `(follow-up to T5)` builds on work you already did: use what you found then instead of searching again.
+If your reply can't be delivered (main closed or restarted), don't retry it. The report and your reply line are kept, and the next main session gets them.
 
 ## Rules
 - Never paste file contents or logs into a message.

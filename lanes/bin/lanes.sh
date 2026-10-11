@@ -23,8 +23,24 @@ project="$(cd "${LANES_PROJECT:-$PWD}" && pwd)"
 dir="$project/.claude/lanes"
 state="$dir/state"
 config_home="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-slug="$(basename "$project" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
-slug="${slug:-project}"
+min_claude="2.1.296"
+
+# The name the lanes go by: the folder name and a tag from the full path, so two
+# projects with the same folder name (or none in ASCII) never share lanes. The tag is
+# FNV-1a over the path's UTF-8 bytes, as register.ts computes it.
+slug_of() {
+  local h=2166136261 b base
+  for b in $(printf '%s' "$1" | od -An -v -tu1); do h=$(( ((h ^ b) * 16777619) & 0xFFFFFFFF )); done
+  base="$(basename "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  printf '%s-%s' "${base:-project}" "$(printf '%08x' "$h" | cut -c1-4)"
+}
+
+# older_than 2.1.250 2.1.296 succeeds
+older_than() {
+  awk -v a="$1" -v b="$2" 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) { if (x[i] + 0 != y[i] + 0) exit !(x[i] + 0 < y[i] + 0) } exit 1 }'
+}
+
+slug="${LANES_SLUG:-$(slug_of "$project")}"
 launch="${LANES_LAUNCH:-window}"
 permission_mode="${LANES_PERMISSION_MODE:-auto}"
 if [ "$(uname -s)" != "Darwin" ]; then launch="background"; fi
@@ -67,12 +83,17 @@ start_lane() {
   prompt="$(write_prompt "$tier")"
   fallback="$(fallback_of "$tier")"; [ "$fallback" = "none" ] && fallback=""
   compact="$(compact_of "$tier")"
+  # the temp folder is where a lane's scratch files go (the repo is main's), so it is a working directory too
   args=(-n "$name" --model "$(model_of "$tier")" --effort "$(effort_of "$tier")"
-        --permission-mode "$permission_mode" --append-system-prompt-file "$prompt")
+        --permission-mode "$permission_mode" --append-system-prompt-file "$prompt" --add-dir "${TMPDIR:-/tmp}")
   [ -n "$fallback" ] && args+=(--fallback-model "$fallback")
   [ -n "$compact" ] && args+=(--autocompact "$compact")
   # Lanes report; code edits, commits, pushes and deploys stay with the main session.
-  args+=(--disallowedTools Edit NotebookEdit 'Bash(git commit:*)' 'Bash(git push:*)' 'Bash(git reset:*)' 'Bash(git checkout:*)')
+  # (register.ts also refuses a lane's Write inside the repo outside .claude/lanes.)
+  args+=(--disallowedTools Edit NotebookEdit)
+  for g in commit push reset checkout restore stash clean switch rebase merge cherry-pick revert apply am rm mv; do
+    args+=("Bash(git $g:*)")
+  done
   [ "$launch" = "background" ] && args=(--bg "${args[@]}")
 
   run="$state/$tier.run.sh"
@@ -111,6 +132,19 @@ stop_lane() {
 
 mkdir -p "$state" "$dir/out" "$dir/notes"
 [ -f "$dir/.gitignore" ] || echo '*' > "$dir/.gitignore"
+
+# A lane that can't find claude, or a claude too old for the flags below, only says
+# "exited early"; say why here instead, where the main session reads the output.
+if [ "$verb" = "start" ]; then
+  if ! command -v claude > /dev/null; then
+    echo "lanes: claude is not on PATH in bash, so no lane can open. Install Claude Code there, or add it to PATH."
+    exit 1
+  fi
+  found="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+  if [ -n "$found" ] && older_than "$found" "$min_claude"; then
+    echo "lanes: Claude Code $found is older than $min_claude, the version lanes is tested on. If a lane closes right away, run claude update."
+  fi
+fi
 
 tiers=(mid low)
 [ "$which" != "all" ] && tiers=("$which")

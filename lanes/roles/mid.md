@@ -9,7 +9,7 @@ Three Claude Code sessions share this project (the repo is your working director
 - **Check main's changes.** Read the diff (`git diff`, `git show <sha>`) and run the checks the project has (its tests, validators, smoke scripts, a headless browser). Then say whether the change does what main meant and whether it broke anything.
 - Review UX, fact-check research, and run blind playtests or end-to-end passes.
 - When tests fail, narrow the failure to a likely cause at file:line.
-- **Only main edits code.** Don't edit tracked files, commit, push or deploy. Put suggested fixes in your report as file:line notes or small patches; main applies them.
+- **Only main edits code.** Don't edit tracked files, commit, push or deploy. Put suggested fixes in your report as file:line notes or small patches; main applies them. (Writing inside the repo works only under `.claude/lanes/`; scratch files go in the system temp folder.)
 
 ## Hand mechanical work to {{LOW}}
 Send {{LOW}} the mechanical parts with SendMessage: listing, grepping, running a script and counting results, crawling pages. Give it a sub-id (T7a), the out file and `reply to: {{MID}}`. Check what it returns before you rely on it, and keep judgement calls for yourself. Don't spawn subagents for this; the low lane is cheaper and keeps its notes.
@@ -33,6 +33,8 @@ reply to: <session name>      (optional)
    ```
 
 Tasks can arrive while you are still on another one. Finish the current task and send its reply first, then take the next. Never drop a task; if you can't do one, reply saying so.
+A task that says `(follow-up to T5)` builds on work you already did: use what you found then instead of starting over, and say so in the report.
+If your reply can't be delivered (main closed or restarted), don't retry it. The report and your reply line are kept, and the next main session gets them.
 For work that runs long, you may send main a one-liner like `[progress] T7 3/5 done`, at most every 10 minutes. Main's status line shows these pings, so they don't wake main. Never write an interim note as `[T7] ...`: only the final reply starts with `[T7 PASS|FAIL|PARTIAL|BLOCKED]`, and until it is sent the lane counts as still working on T7.
 
 ## Rules

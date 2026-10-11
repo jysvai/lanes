@@ -1,6 +1,6 @@
 {
   "name": "lanes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "On-demand lane sessions beside your main Claude Code session: a mid lane for tests and verification, a low lane for search, scripts and crawling. Status line, /lane, and tools the main model calls.",
   "author": { "name": "jysvai" },
   "userConfig": {
@@ -67,6 +67,13 @@
       "description": "window: a terminal window per lane (Windows, macOS). background: claude --bg, watch with claude attach <name>.",
       "default": "window",
       "options": ["window", "background"]
+    },
+    "permission_mode": {
+      "type": "string",
+      "title": "Lane permission mode",
+      "description": "Passed to each lane as --permission-mode. No one answers a prompt in a background lane, so where auto mode isn't available, pick dontAsk with an allowlist, or manual with lanes in windows.",
+      "default": "auto",
+      "options": ["auto", "acceptEdits", "dontAsk", "manual", "bypassPermissions"]
     },
     "idle_minutes": {
       "type": "number",

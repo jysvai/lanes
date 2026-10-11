@@ -22,6 +22,7 @@ function ground(on: On, files: Record<string, string>) {
   on('turn.complete', () => ({ text: '' }) as never)
   on('session.receive', ($, e) => ({ text: e.text }) as never)
   on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+  on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
 
   return clock
 }
@@ -113,4 +114,55 @@ test('a progress ping or a sub-task send leaves the current task alone', async (
 
   expect(state(files).task.startsWith('[T7]')).toBe(true)
   expect(state(files).next).toEqual(['[T8] list the tests'])
+})
+
+const ledger = (files: Record<string, string>) => JSON.parse(files['C:/work/demo/.claude/lanes/state/low.tasks.json'] ?? '{}')
+
+test('each task goes in the ledger with how it ended, and the lane keeps it in context for a follow-up', async ($, on) => {
+  const files: Record<string, string> = {}
+  const clock = ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files\nout: .claude/lanes/out/T7.md' } as never)
+  await $.session.receive({ origin: { kind: 'peer' }, text: '[T8] list the tests\nout: .claude/lanes/out/T8.md' } as never)
+  await clock.advance(90_000)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] 12 files\n→ .claude/lanes/out/T7.md' } as never)
+
+  expect(ledger(files).T7).toMatchObject({ lane: 'low', goal: 'count the files', started: 0, ended: 90_000, verdict: 'DONE', reply: '[T7 DONE] 12 files', to: 'demo-main' })
+  // the waiting task became current and has its entry, still open
+  expect(ledger(files).T8).toMatchObject({ goal: 'list the tests', started: 90_000 })
+  expect(ledger(files).T8.verdict).toBeUndefined()
+  expect(state(files).context).toEqual(['T7'])
+})
+
+test("a lane can't write the repo's files, only under .claude/lanes and outside the repo", async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const write = (file_path: string) => $.tool.call({ tool: 'Write', file_path, content: 'x' } as never) as Promise<{ deny?: string; result?: unknown }>
+
+  expect((await write('C:\\work\\demo\\src\\app.ts')).deny).toContain("main's to change")
+  expect((await write('C:/Work/Demo/README.md')).deny).toContain("main's to change")
+  expect((await write('C:/work/demo/.claude/lanes/../../src/app.ts')).deny).toContain("main's to change")
+  expect((await write('C:/work/demo/.claude/lanes/out/T7.md')).result).toBe('written')
+  expect((await write('C:/Users/me/AppData/Local/Temp/scratch.py')).result).toBe('written')
+  expect((await write('\\\\?\\C:\\work\\demo\\src\\app.ts')).deny).toContain("main's to change")
+  expect((await write('\\\\localhost\\C$\\work\\demo\\src\\app.ts')).deny).toContain("main's to change")
+})
+
+test('a junction or a short name that lands in the repo is caught on where it really lands', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  // C:/work/DEMO~1 is the short name of C:/work/demo; C:/tmp/link is a junction to C:/work/demo/src
+  const real: Record<string, string> = { 'c:/work/demo~1': 'C:\\work\\demo', 'c:/tmp/link': 'C:\\work\\demo\\src', 'c:/work/demo': 'C:\\work\\demo', 'c:/tmp': 'C:\\tmp', 'c:/': 'C:\\' }
+  on('fs.stat', ($, e) => {
+    const at = e.path.replaceAll('\\', '/').toLowerCase()
+
+    return at in real ? { value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false, realPath: real[at] } } : { deny: 'no such file' }
+  })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const write = (file_path: string) => $.tool.call({ tool: 'Write', file_path, content: 'x' } as never) as Promise<{ deny?: string; result?: unknown }>
+
+  expect((await write('C:/work/DEMO~1/README.md')).deny).toContain("main's to change")
+  expect((await write('C:/tmp/link/app.ts')).deny).toContain("main's to change")
+  expect((await write('C:/tmp/notes.txt')).result).toBe('written')
 })
