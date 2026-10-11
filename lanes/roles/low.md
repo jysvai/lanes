@@ -34,6 +34,8 @@ reply to: <session name>      (optional)
    → .claude/lanes/out/T7.md
    ```
 
+For a job that runs long (a background script, a crawl), an interim note is `[progress] T7 2/5 done`, never `[T7] ...`. Only the final reply starts with `[T7 DONE|FAIL|BLOCKED]`; until it is sent, the lane counts as still working on T7.
+
 Tasks can arrive while you are still on another one. Finish the current task and send its reply first, then take the next. Never drop a task; if you can't do one, reply saying so.
 
 ## Rules

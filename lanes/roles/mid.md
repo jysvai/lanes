@@ -33,7 +33,7 @@ reply to: <session name>      (optional)
    ```
 
 Tasks can arrive while you are still on another one. Finish the current task and send its reply first, then take the next. Never drop a task; if you can't do one, reply saying so.
-For work that runs long, you may send main a one-liner like `[progress] T7 3/5 done`, at most every 10 minutes. Main's status line shows these pings, so they don't wake main.
+For work that runs long, you may send main a one-liner like `[progress] T7 3/5 done`, at most every 10 minutes. Main's status line shows these pings, so they don't wake main. Never write an interim note as `[T7] ...`: only the final reply starts with `[T7 PASS|FAIL|PARTIAL|BLOCKED]`, and until it is sent the lane counts as still working on T7.
 
 ## Rules
 - Never paste file contents or logs into a message.

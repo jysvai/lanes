@@ -32,6 +32,8 @@ type LaneState = {
   task: string
   /** tasks that arrived while the lane was on `task`, oldest first */
   next?: string[]
+  /** `task` still owes its sender a "[Tn PASS|DONE|...]" reply */
+  open?: boolean
   last: string
   turns: number
   tokens: { input: number; output: number; cacheRead: number }
@@ -363,8 +365,18 @@ async function drainQueue($: EngineInterface) {
   for (const body of queued) await $.prompt.submit({ text: body })
 }
 
+// Closing a lane that is still on something leaves it stuck at "background
+// tasks are running, exit anyway?" with every later message queued behind that.
 async function closeIfIdle($: EngineInterface) {
   if (me === undefined || me.state !== 'idle') return
+  const sessionId = me.sessionId
+  const self = [...(await peers($)).values()].find(p => p.sessionId === sessionId)
+  const owesReply = me.open === true && (await $.clock.now()) - me.since < cfg.idleMinutes * 3 * 60_000
+  if (self?.status === 'waiting' || owesReply) {
+    armIdle($)
+
+    return
+  }
   me.state = 'off'
   await save($)
   await $.command.run({ command: 'exit' })
@@ -382,7 +394,13 @@ async function markBusy($: EngineInterface, from: string) {
   me.since = await $.clock.now()
   // A turn raised by something other than a task (a background job finishing,
   // a reply from the other lane) carries on with the current task.
-  me.task = pending || (isTask(from) || !isTask(me.task) ? taskLine(from) : me.task) || '(continuing)'
+  const fresh = pending || (isTask(from) ? taskLine(from) : '')
+  if (fresh !== '') {
+    me.task = fresh
+    me.open = true
+  } else if (!isTask(me.task)) {
+    me.task = taskLine(from) || '(continuing)'
+  }
   me.next = []
   pending = ''
   await save($)
@@ -402,12 +420,19 @@ async function queueBehind($: EngineInterface, message: string) {
 }
 
 // The lane's reply "[T7 PASS] ..." ends T7; the next waiting task becomes current.
+// A note like "[T7] step 4 still running" is not a reply.
 async function noteReply($: EngineInterface, message: unknown) {
   if (me === undefined || typeof message !== 'string') return
-  const id = message.match(/^\s*\[([A-Z]\d+[a-z]?)[\s\]]/)?.[1]
+  const id = message.match(/^\s*\[([A-Z]\d+[a-z]?)\s+[A-Z]{3,}\b/)?.[1]
   if (id === undefined || id !== taskId(me.task)) return
+  me.open = false
   const [head, ...rest] = me.next ?? []
-  if (head === undefined) return
+  if (head === undefined) {
+    await save($)
+
+    return
+  }
+  me.open = true
   me.task = head
   me.next = rest
   me.since = await $.clock.now()

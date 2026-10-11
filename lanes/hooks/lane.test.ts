@@ -4,7 +4,7 @@ import type { On } from 'claude-code'
 // The low lane of project "demo", writing its state to files.
 function ground(on: On, files: Record<string, string>) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', CLAUDE_LANE: 'low' })
-  mock.clock(on)
+  const clock = mock.clock(on)
   const key = (p: string) => p.replaceAll('\\', '/')
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.exists', ($, e) => ({ value: key(e.path) in files }))
@@ -22,6 +22,8 @@ function ground(on: On, files: Record<string, string>) {
   on('turn.complete', () => ({ text: '' }) as never)
   on('session.receive', ($, e) => ({ text: e.text }) as never)
   on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+
+  return clock
 }
 
 const state = (files: Record<string, string>) => JSON.parse(files['C:/work/demo/.claude/lanes/state/low.json'] ?? '{}')
@@ -40,6 +42,31 @@ test('a task that arrives mid-turn waits behind the current one, and the reply m
 
   expect(state(files).task.startsWith('[T8]')).toBe(true)
   expect(state(files).next).toEqual([])
+})
+
+test('an idle lane that still owes a reply (its job runs in the background) is not closed; after the reply it is', async ($, on) => {
+  const files: Record<string, string> = {}
+  const clock = ground(on, files)
+  const exits: string[] = []
+  on('command.run', ($, e) => {
+    exits.push(e.command)
+
+    return { text: '' } as never
+  })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T6] run the regression' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T6] step 4 is running, I will check back' } as never)
+  await $.turn.complete({ turnId: 't1', answer: 'waiting on the play run', toolUses: [], usage: null } as never)
+  await clock.advance(21 * 60_000)
+
+  expect(exits).toEqual([])
+
+  await $.turn.start({ turnId: 't2', text: '<task-notification>' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T6 DONE] 16/16 cases solved' } as never)
+  await $.turn.complete({ turnId: 't2', answer: 'sent', toolUses: [], usage: null } as never)
+  await clock.advance(21 * 60_000)
+
+  expect(exits).toEqual(['exit'])
 })
 
 test('a claude -p started inside the lane (a summary hook, say) leaves the lane state alone', async ($, on) => {
