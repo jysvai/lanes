@@ -116,8 +116,9 @@ const VERDICT = /^\s*\[([A-Z]\d+[a-z]?)\s+([A-Z]{3,})\b/
 const REPLY_MAX = 300
 
 // The module's own variables start over on a reload; session.start fills them again.
+const MAIN_MODEL = 'claude-opus-5-5[1m]'
 let cfg: Config = {
-  main: { model: 'claude-opus-5-5[1m]', fallback: 'claude-fable-5-1', effort: 'xhigh' },
+  main: { model: MAIN_MODEL, fallback: 'claude-fable-5-1', effort: 'xhigh' },
   mid: { model: 'claude-sonnet-5-5', fallback: 'claude-opus-5-5', effort: 'high' },
   low: { model: 'claude-haiku-5-5', fallback: 'claude-sonnet-5-5', effort: 'medium' },
   launch: 'window',
@@ -161,10 +162,15 @@ let inbox = ''
 const text = (v: unknown, fallback: string) => (typeof v === 'string' ? v.trim() : fallback)
 const effortOf = (v: unknown, fallback: Effort): Effort => (RANK.includes(v as Effort) ? (v as Effort) : fallback)
 
+// a main model set in /config that has no known price (a typo): "on main" is worked out on the default
+let mainUnpriced = ''
+
 function configure(options: Readonly<Record<string, unknown>>) {
+  const main = text(options.main_model, cfg.main.model)
+  mainUnpriced = PRICES.some(([re]) => re.test(main)) ? '' : main
   cfg = {
     main: {
-      model: text(options.main_model, cfg.main.model),
+      model: mainUnpriced === '' ? main : MAIN_MODEL,
       fallback: text(options.main_fallback, cfg.main.fallback),
       effort: effortOf(options.main_effort, cfg.main.effort),
     },
@@ -486,17 +492,42 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   await saveLedger($)
 }
 
+type Task = [id: string, t: TaskEntry, isEstimate: boolean]
+
+// Both lanes' tasks. One from a day priced afterwards (see repriced) was logged at $0 and kept
+// no tokens: it gets its share of that day's cost by its number of requests, as an estimate.
+async function laneTasks($: EngineInterface): Promise<Task[]> {
+  const logs = Object.fromEntries(await Promise.all(TIERS.map(async t => [t, await readSpend($, t)] as const))) as Record<Tier, SpendLog>
+  const ledgers = await Promise.all(TIERS.map(t => readJson<Ledger>($, ledgerFile(t), {})))
+
+  return ledgers.flatMap(l => Object.entries(l)).map(([id, t]): Task => {
+    const s = logs[t.lane]?.[dayOf(t.started)]
+    if (t.cost > 0 || t.calls === 0 || !s?.repriced || !s.repricedCost) return [id, t, false]
+    const cost = (s.repricedCost / s.repriced) * t.calls
+
+    return [id, { ...t, cost, onMain: s.cost > 0 ? cost * (s.onMain / s.cost) : cost }, true]
+  })
+}
+
+const dollars = (n: number, isEstimate = false) => `${isEstimate ? '≈' : ''}$${n.toFixed(2)}`
+
+// "saved $0.40 (50%)"
+const savedOf = (t: { cost: number; onMain: number }, isEstimate = false) =>
+  `saved ${dollars(t.onMain - t.cost, isEstimate).padStart(6)}${t.onMain > t.cost ? ` (${Math.round((1 - t.cost / t.onMain) * 100)}%)` : ''}`
+
+const ESTIMATED = 'A ≈ task ran before 0.3.2 behind a gateway: its cost is its share of that day\'s, by its number of requests.'
+
 // "/lane tasks": the newest tasks of both lanes, how each ended and what it cost.
 async function taskReport($: EngineInterface) {
   const now = await $.clock.now()
-  const all = (await Promise.all(TIERS.map(t => readJson<Ledger>($, ledgerFile(t), {})))).flatMap(l => Object.entries(l))
+  const all = await laneTasks($)
   if (all.length === 0) return 'No lane tasks yet.'
   const shown = all.sort(([, a], [, b]) => b.started - a.started).slice(0, 15)
-  const $$ = (n: number) => `$${n.toFixed(2)}`
-  const rows = shown.map(([id, t]) => {
+  const $$ = dollars
+  const rows = shown.map(([id, t, est]) => {
     const took = ago((t.ended ?? now) - t.started)
 
-    return `  ${id.padEnd(6)}${t.lane.padEnd(5)}${(t.verdict ?? 'open').padEnd(9)}${took.padStart(4)}  ${$$(t.cost).padStart(7)} (on main ${$$(t.onMain)})  ${t.goal}`
+    return `  ${id.padEnd(6)}${t.lane.padEnd(5)}${(t.verdict ?? 'open').padEnd(9)}${took.padStart(4)}  ${$$(t.cost, est).padStart(7)} (on main ${$$(t.onMain, est)})  ${t.goal}`
   })
   const cost = all.reduce((n, [, t]) => n + t.cost, 0)
   const onMain = all.reduce((n, [, t]) => n + t.onMain, 0)
@@ -505,6 +536,7 @@ async function taskReport($: EngineInterface) {
     `lane tasks in this project, newest first (${shown.length} of ${all.length})`,
     ...rows,
     `all ${all.length} tasks: ${$$(cost)}, on ${modelLabel(cfg.main.model)} ${$$(onMain)}. A sub-task (T7a) is counted on its own row.`,
+    ...(all.some(([, , est]) => est) ? [ESTIMATED] : []),
   ].join('\n')
 }
 
@@ -523,17 +555,14 @@ function cheaper(model: string, vs: string) {
 // The part of "/lane usage" that says where the lanes' saving came from: each task's
 // share, the price gap that made it, and what the lanes read so main didn't have to.
 async function savings($: EngineInterface, lanes: Spend, day: string | undefined) {
-  const $$ = (n: number) => `$${n.toFixed(2)}`
+  const $$ = dollars
   const short = modelLabel
-  const tasks = (await Promise.all(TIERS.map(t => readJson<Ledger>($, ledgerFile(t), {}))))
-    .flatMap(l => Object.entries(l))
+  const tasks = (await laneTasks($))
     .filter(([, t]) => day === undefined || dayOf(t.started) === day)
     .sort(([, a], [, b]) => b.onMain - b.cost - (a.onMain - a.cost))
   const shown = tasks.slice(0, 8)
   const inTasks = tasks.reduce((n, [, t]) => n + t.cost, 0)
-  // what was priced afterwards from token totals: the task ledger kept no tokens to split it by
-  const early = lanes.repricedCost ?? 0
-  const outside = lanes.cost - inTasks - early
+  const outside = lanes.cost - inTasks
   const gaps = TIERS.map(t => [t, cheaper(cfg[t].model, cfg.main.model)] as const).filter(([, g]) => g !== undefined)
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`)
 
@@ -542,11 +571,11 @@ async function savings($: EngineInterface, lanes: Spend, day: string | undefined
       ? []
       : [
           'where it came from, by task (most saved first)',
-          ...shown.map(([id, t]) =>
-            `  ${id.padEnd(6)}${t.lane.padEnd(5)}${(t.verdict ?? 'open').padEnd(8)}${$$(t.cost).padStart(7)} instead of ${$$(t.onMain).padStart(7)}  saved ${$$(t.onMain - t.cost).padStart(6)}  ${t.goal.slice(0, 48)}`),
+          ...shown.map(([id, t, est]) =>
+            `  ${id.padEnd(6)}${t.lane.padEnd(5)}${(t.verdict ?? 'open').padEnd(8)}${$$(t.cost, est).padStart(7)} instead of ${$$(t.onMain, est).padStart(7)}  ${savedOf(t, est)}  ${t.goal.slice(0, 48)}`),
           ...(tasks.length > shown.length ? [`  …and ${tasks.length - shown.length} more (/lane tasks)`] : []),
-          ...(early >= 0.005 ? [`  logged at $0 before 0.3.2 and priced from token totals, not split by task: ${$$(early)}`] : []),
           ...(outside >= 0.005 ? [`  lane time outside a task (opening, notes): ${$$(outside)}`] : []),
+          ...(shown.some(([, , est]) => est) ? [`  ${ESTIMATED}`] : []),
         ]),
     'how',
     ...(gaps.length > 0
@@ -575,12 +604,12 @@ async function spendReport($: EngineInterface, all: boolean) {
   const row = (name: string, model: string, s: Spend, vs: boolean) =>
     `  ${name.padEnd(6)}${model.padEnd(14)}${String(s.calls).padStart(6)} calls ${$$(s.cost).padStart(9)}${vs ? `   on ${short('main')} ${$$(s.onMain)}${saved(s)}` : ''}`
   const unpriced = [
-    ...(PRICES.some(([re]) => re.test(cfg.main.model))
+    ...(mainUnpriced === ''
       ? []
-      : [`The main model in /config, ${cfg.main.model}, has no known price (a typo?), so what the work would have cost on main can't be worked out.`]),
+      : [`The main model in /config, ${mainUnpriced}, has no known price (a typo?): "on main" is worked out on ${cfg.main.model}, the default, instead.`]),
     ...(total.unpriced > 0 ? [`${total.unpriced} requests were on a model without a known price and count as $0.`] : []),
     ...((total.repriced ?? 0) > 0
-      ? [`${total.repriced} requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals at each session's model; by task they stay at $0.`]
+      ? [`${total.repriced} requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals at each session's model; a task from those days gets its share by its number of requests (≈).`]
       : []),
   ].map(line => `\n${line}`).join('')
 
