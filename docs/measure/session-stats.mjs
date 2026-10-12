@@ -9,13 +9,18 @@
 //   node session-stats.mjs ~/.claude/projects/<project folder> <main session id> [until, ISO time]
 //
 // The project folder is the project's path with every non-letter as "-" (C--Users-me-Desktop-app).
-// A lane is any other session there with a name (<project>-mid, <project>-low) and a Sonnet or
-// Haiku model; unnamed one-off calls other tools make (summaries, say) are left out.
+// Without a session id it lists the main sessions there (unnamed ones), newest first.
+// A lane is any other session there with a name: <project>-mid or <project>-low, or else one whose
+// model is a Sonnet or a Haiku; unnamed one-off calls other tools make (summaries, say) are left out.
+// A request a gateway answers under a model name of its own (a Bedrock application inference
+// profile's ARN, an alias) is priced as its session's model: Opus 5.5 for main, Sonnet 5.5 for the
+// mid lane, Haiku 5.5 for the low lane; `pricedBySession` counts them.
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const [dir, mainId, untilIso] = process.argv.slice(2)
 const until = untilIso ? Date.parse(untilIso) : Infinity
+const SESSION_MODEL = { main: 'claude-opus-5-5', mid: 'claude-sonnet-5-5', low: 'claude-haiku-5-5' }
 
 const PRICES = [
   [/fable-5-1|mythos-5-1/, [10, 20, 0.25, 50]],
@@ -58,6 +63,21 @@ function requests(path, info = {}) {
   return [...byId.values()]
 }
 
+if (!mainId) {
+  const rows = readdirSync(dir).filter(f => f.endsWith('.jsonl')).flatMap(f => {
+    const info = {}
+    const reqs = requests(join(dir, f), info)
+    if (info.name || reqs.length === 0) return []
+    const at = reqs.map(r => r.at)
+
+    return [{ id: f.slice(0, -6), first: Math.min(...at), last: Math.max(...at), calls: reqs.length }]
+  })
+  for (const r of rows.sort((a, b) => b.last - a.last).slice(0, 10)) {
+    console.log(`${r.id}  ${new Date(r.first).toISOString().slice(0, 16)} – ${new Date(r.last).toISOString().slice(11, 16)}  ${r.calls} requests`)
+  }
+  process.exit(0)
+}
+
 const mainFile = join(dir, `${mainId}.jsonl`)
 const mainReqs = requests(mainFile)
 const start = Math.min(...[...jsonl(mainFile)].map(r => Date.parse(r.timestamp)).filter(Number.isFinite))
@@ -74,17 +94,22 @@ for (const f of readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.startsWi
   const info = {}
   const reqs = requests(path, info)
   if (!info.name) continue
+  const lane = /-mid$/.test(info.name) ? 'mid' : /-low$/.test(info.name) ? 'low' : undefined
   for (const r of reqs) {
     if (r.at < start || r.at > end) continue
-    if (/sonnet/.test(r.model)) roles.mid.push(r)
-    else if (/haiku/.test(r.model)) roles.low.push(r)
+    const role = lane ?? (/sonnet/.test(r.model) ? 'mid' : /haiku/.test(r.model) ? 'low' : undefined)
+    if (role) roles[role].push(r)
   }
 }
 
-const sum = reqs => {
-  const s = { calls: reqs.length, cost: 0, onOpus: 0, tokensIn: 0, output: 0, first: Infinity, last: 0, models: new Set() }
+const sum = (reqs, role) => {
+  const s = { calls: reqs.length, cost: 0, onOpus: 0, tokensIn: 0, output: 0, first: Infinity, last: 0, models: new Set(), pricedBySession: 0, unpriced: 0 }
   for (const r of reqs) {
-    s.cost += price(r.model, r.usage) ?? 0
+    const own = price(r.model, r.usage)
+    const bySession = own === undefined && SESSION_MODEL[role] ? price(SESSION_MODEL[role], r.usage) : undefined
+    s.pricedBySession += bySession === undefined ? 0 : 1
+    s.unpriced += own === undefined && bySession === undefined ? 1 : 0
+    s.cost += own ?? bySession ?? 0
     s.onOpus += price('claude-opus-5-5', r.usage) ?? 0
     s.tokensIn += r.usage.input_tokens + (r.usage.cache_creation_input_tokens ?? 0) + (r.usage.cache_read_input_tokens ?? 0)
     s.output += r.usage.output_tokens
@@ -140,7 +165,7 @@ const out = {
   parallelMin: (overlap(mainSpans, laneSpans.mid) + overlap(mainSpans, laneSpans.low)) / 60_000,
 }
 for (const [k, v] of Object.entries(roles)) {
-  const s = sum(v)
+  const s = sum(v, k)
   out.roles[k] = { ...s, models: [...s.models], first: s.calls ? new Date(s.first).toISOString() : null, last: s.calls ? new Date(s.last).toISOString() : null }
 }
 const lanes = ['mid', 'low'].map(k => out.roles[k])
