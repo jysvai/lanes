@@ -13,8 +13,10 @@
 // A lane is any other session there with a name: <project>-mid or <project>-low, or else one whose
 // model is a Sonnet or a Haiku; unnamed one-off calls other tools make (summaries, say) are left out.
 // A request a gateway answers under a model name of its own (a Bedrock application inference
-// profile's ARN, an alias) is priced as its session's model: Opus 5.5 for main, Sonnet 5.5 for the
-// mid lane, Haiku 5.5 for the low lane; `pricedBySession` counts them.
+// profile's ARN, an alias) is priced as the lane that answered under the same name ran: a name
+// the mid lane's requests carry is Sonnet 5.5's, the low lane's Haiku 5.5's, so main's requests
+// while it was switched to Sonnet are priced as Sonnet (`pricedByLaneName` counts them). Any other
+// is priced as its session's model: Opus 5.5 for main (`pricedBySession` counts them).
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -102,14 +104,20 @@ for (const f of readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.startsWi
   }
 }
 
+// a gateway's own model name -> the model of the lane whose requests carry it
+const laneName = new Map()
+for (const role of ['mid', 'low']) for (const r of roles[role]) if (price(r.model, r.usage) === undefined) laneName.set(r.model, SESSION_MODEL[role])
+
 const sum = (reqs, role) => {
-  const s = { calls: reqs.length, cost: 0, onOpus: 0, tokensIn: 0, output: 0, first: Infinity, last: 0, models: new Set(), pricedBySession: 0, unpriced: 0 }
+  const s = { calls: reqs.length, cost: 0, onOpus: 0, tokensIn: 0, output: 0, first: Infinity, last: 0, models: new Set(), pricedByLaneName: 0, pricedBySession: 0, unpriced: 0 }
   for (const r of reqs) {
     const own = price(r.model, r.usage)
-    const bySession = own === undefined && SESSION_MODEL[role] ? price(SESSION_MODEL[role], r.usage) : undefined
+    const byLane = own === undefined && laneName.has(r.model) ? price(laneName.get(r.model), r.usage) : undefined
+    const bySession = own === undefined && byLane === undefined && SESSION_MODEL[role] ? price(SESSION_MODEL[role], r.usage) : undefined
+    s.pricedByLaneName += byLane === undefined ? 0 : 1
     s.pricedBySession += bySession === undefined ? 0 : 1
-    s.unpriced += own === undefined && bySession === undefined ? 1 : 0
-    s.cost += own ?? bySession ?? 0
+    s.unpriced += own === undefined && byLane === undefined && bySession === undefined ? 1 : 0
+    s.cost += own ?? byLane ?? bySession ?? 0
     s.onOpus += price('claude-opus-5-5', r.usage) ?? 0
     s.tokensIn += r.usage.input_tokens + (r.usage.cache_creation_input_tokens ?? 0) + (r.usage.cache_read_input_tokens ?? 0)
     s.output += r.usage.output_tokens

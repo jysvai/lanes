@@ -299,6 +299,8 @@ const queueFile = (t: Tier) => `${ownDir()}/${t}.queue.json`
 const issuedFile = () => `${ownDir()}/issued.json`
 const notesSeal = () => `${ownDir()}/notes.json`
 const spendFile = (r: Role) => `${dir}/state/${r}.spend.json`
+// main's log before the project's first lane (see record)
+const earlySpendFile = () => `${ownDir()}/main.spend.json`
 const ledgerFile = (t: Tier) => `${dir}/state/${t}.tasks.json`
 // the reply ids a main session has seen, written by main sessions alone
 const seenFile = () => `${dir}/state/main.seen.json`
@@ -446,12 +448,16 @@ function repriced(s: Spend, model: string): Spend {
 }
 
 async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
-  let log: SpendLog
-  try {
-    log = JSON.parse(String(await $.fs.read(spendFile(r)))) as SpendLog
-  } catch {
-    return {}
+  let log: SpendLog | undefined
+  for (const file of r === 'main' ? [spendFile(r), earlySpendFile()] : [spendFile(r)]) {
+    try {
+      log = JSON.parse(String(await $.fs.read(file))) as SpendLog
+      break
+    } catch {
+      // not there yet
+    }
   }
+  if (log === undefined) return {}
   for (const [day, s] of Object.entries(log)) log[day] = repriced(s, cfg[r].model)
 
   return log
@@ -480,9 +486,11 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   s.output += usage.output_tokens
   s.cost += cost ?? 0
   s.onMain += price(cfg.main.model, usage) ?? cost ?? 0
-  // A main session counts from its start, but writes its log only in a project that has used
-  // the lanes: the first lane it opens carries the session's earlier spend onto disk.
-  if (role !== 'main' || (await $.fs.exists(`${dir}/state`))) await put($, spendFile(role), JSON.stringify(spend, null, 1))
+  // A main session counts from its start, but writes its log in the project only once the
+  // project has used the lanes. Until then the log waits in the user's folder, so a restart or
+  // a plugin reload before the first lane loses none of it; the first write here carries it over.
+  const inProject = role !== 'main' || (await $.fs.exists(`${dir}/state`))
+  await put($, inProject ? spendFile(role) : earlySpendFile(), JSON.stringify(spend, null, 1))
   // a lane's request also counts toward the task it is on
   const entry = me === undefined ? undefined : ledger[taskId(me.task)]
   if (entry === undefined) return

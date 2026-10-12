@@ -117,6 +117,21 @@ test('/lane usage counts the main session from its start, before any lane has op
   expect(files['C:/work/demo/.claude/lanes/state/main.spend.json']).toBeUndefined()
 })
 
+test("a restart or a plugin reload before the project's first lane keeps what main has spent so far", async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files, {}, { model: 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  // the plugin reloads: session.start fills the module's variables again
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+
+  expect((await $.command.run({ command: 'lane', args: 'usage' } as never)).text).toContain('  main  opus-5-5           2 calls     $0.40')
+  // kept in the user's folder, still nothing in the project
+  expect(Object.keys(files).some(f => /^C:\/Users\/me\/\.claude\/lanes\/demo-[0-9a-f]{4}\/main\.spend\.json$/.test(f))).toBe(true)
+  expect(files['C:/work/demo/.claude/lanes/state/main.spend.json']).toBeUndefined()
+})
+
 test('/lane usage adds up the main session and the lanes and says what the lanes saved', async ($, on) => {
   const day = (cost: number, onMain: number, calls: number) =>
     JSON.stringify({ [today]: { calls, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost, onMain } })
