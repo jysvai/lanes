@@ -1,0 +1,132 @@
+{
+ "start": "2026-10-12T03:03:03.082Z",
+ "end": "2026-10-12T03:56:53.098Z",
+ "hours": 0.8972266666666666,
+ "roles": {
+  "main": {
+   "calls": 20,
+   "cost": 3.7922203999999993,
+   "onOpus": 3.7922203999999993,
+   "tokensIn": 1323184,
+   "output": 75134,
+   "first": "2026-10-12T03:08:52.669Z",
+   "last": "2026-10-12T03:56:53.098Z",
+   "models": [
+    "a gateway's Bedrock application inference profile (ARN removed)"
+   ],
+   "pricedBySession": 20,
+   "unpriced": 0
+  },
+  "main subagents": {
+   "calls": 0,
+   "cost": 0,
+   "onOpus": 0,
+   "tokensIn": 0,
+   "output": 0,
+   "first": null,
+   "last": null,
+   "models": [],
+   "pricedBySession": 0,
+   "unpriced": 0
+  },
+  "mid": {
+   "calls": 19,
+   "cost": 1.3352682,
+   "onOpus": 2.6705364,
+   "tokensIn": 1219815,
+   "output": 85880,
+   "first": "2026-10-12T03:34:28.098Z",
+   "last": "2026-10-12T03:52:48.611Z",
+   "models": [
+    "a gateway's Bedrock application inference profile (ARN removed)"
+   ],
+   "pricedBySession": 19,
+   "unpriced": 0
+  },
+  "low": {
+   "calls": 11,
+   "cost": 0.02896415,
+   "onOpus": 1.037403,
+   "tokensIn": 683752,
+   "output": 14646,
+   "first": "2026-10-12T03:34:26.155Z",
+   "last": "2026-10-12T03:37:00.143Z",
+   "models": [
+    "a gateway's Bedrock application inference profile (ARN removed)"
+   ],
+   "pricedBySession": 11,
+   "unpriced": 0
+  }
+ },
+ "startMs": 1791774183082,
+ "endMs": 1791777413098,
+ "mainSpans": [
+  [
+   1791774532669,
+   1791774812630
+  ],
+  [
+   1791776057798,
+   1791776599592
+  ],
+  [
+   1791777164670,
+   1791777164670
+  ],
+  [
+   1791777406086,
+   1791777413098
+  ]
+ ],
+ "laneSpans": {
+  "mid": [
+   [
+    1791776068098,
+    1791776233093
+   ],
+   [
+    1791776579239,
+    1791777168611
+   ]
+  ],
+  "low": [
+   [
+    1791776066155,
+    1791776220143
+   ]
+  ]
+ },
+ "tasks": [
+  {
+   "id": "T1",
+   "lane": "low",
+   "at": 1791776057047
+  },
+  {
+   "id": "T2",
+   "lane": "mid",
+   "at": 1791776063312
+  },
+  {
+   "id": "T3",
+   "lane": "mid",
+   "at": 1791776577356
+  }
+ ],
+ "busyMin": {
+  "main": 13.812783333333334,
+  "mid": 12.572783333333334,
+  "low": 2.5664666666666665
+ },
+ "parallelMin": 5.6556,
+ "lanes": {
+  "calls": 30,
+  "cost": 1.36423235,
+  "onOpus": 3.7079394,
+  "tokensIn": 1903567
+ },
+ "total": {
+  "cost": 5.15645275,
+  "allOnOpus": 7.500159799999999
+ }
+}

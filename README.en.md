@@ -112,18 +112,18 @@ A real record of one web game project worked on all afternoon (4.6 hours), next 
 - **You get more than a lower bill.** Main's context stays light, so it stays on track through long work; checks and research run while main keeps working; and every task's result and cost is on record.
 - **How it's counted:** every request in the session logs, its tokens priced at its model's [API list price](https://platform.claude.com/docs/en/about-claude/pricing) (cache writes at the 1-hour rate). A week, a month and a year take this session as one working day.
 
-### Measured on two projects
+### Measured on three projects
 
-<p align="center"><img src="docs/en/projects.svg" width="880" alt="Two projects measured: all on Opus 145.64 dollars, with lanes 101.53 dollars, 44.11 dollars (30%) saved"></p>
+<p align="center"><img src="docs/en/projects.svg" width="880" alt="Three projects measured: all on Opus 153.14 dollars, with lanes 106.69 dollars, 46.45 dollars (30%) saved"></p>
 
-| | Project 1 · a web game | Project 2 · the lanes plugin | Both |
-|---|---:|---:|---:|
-| Session | 4.7 h · 29 lane tasks | 3.4 h · 7 lane tasks | 8.1 h |
-| All on Opus | $106.13 | $39.51 | $145.64 |
-| With lanes | $70.64 | $30.89 | $101.53 |
-| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$44.11 (30%)** |
+| | Project 1 · a web game | Project 2 · the lanes plugin | Project 3 · a work planning doc (Bedrock) | All three |
+|---|---:|---:|---:|---:|
+| Session | 4.7 h · 29 lane tasks | 3.4 h · 7 lane tasks | 0.9 h · 3 lane tasks | 9.0 h |
+| All on Opus | $106.13 | $39.51 | $7.50 | $153.14 |
+| With lanes | $70.64 | $30.89 | $5.16 | $106.69 |
+| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (31%)** | **−$46.45 (30%)** |
 
-Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
+Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. Project 3 is a planning doc written on a work computer, through the company's gateway to Amazon Bedrock; the low lane did the web research at 3% of Opus's price, and the lanes' share saved 63%. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
 
 See your own project's numbers with `/lane usage`:
 

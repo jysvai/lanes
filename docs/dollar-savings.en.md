@@ -2,30 +2,30 @@
 
 # What lanes actually saves
 
-**Measured on two projects, and the same tasks run on three models**
+**Measured on three projects, and the same tasks run on three models**
 
 [한국어](dollar-savings.md) · **English** · [Back to the README](../README.en.md)
 
 </div>
 
-<p align="center"><img src="en/projects.svg" width="880" alt="What the lanes saved on two projects: all on Opus 145.64 dollars, with lanes 101.53 dollars, 44.11 dollars (30%) saved. Project 1, a web game, 106.13 to 70.64 dollars (33%); project 2, the lanes plugin, 39.51 to 30.89 dollars (22%)"></p>
+<p align="center"><img src="en/projects.svg" width="880" alt="What the lanes saved on three projects: all on Opus 153.14 dollars, with lanes 106.69 dollars, 46.45 dollars (30%) saved. Project 1, a web game, 106.13 to 70.64 dollars (33%); project 2, the lanes plugin, 39.51 to 30.89 dollars (22%); project 3, a work planning doc on Bedrock, 7.50 to 5.16 dollars (31%)"></p>
 
 ## At a glance
 
-| | Project 1 · a web game | Project 2 · the lanes plugin | Both |
-|---|---:|---:|---:|
-| Session (KST) | Oct 11, 14:07–18:48 | Oct 11, 21:10 – Oct 12, 00:33 | |
-| Length | 4.7 h | 3.4 h | 8.1 h |
-| Lane tasks | 29 | 7 | 36 |
-| All on Opus | $106.13 | $39.51 | $145.64 |
-| With lanes | $70.64 | $30.89 | $101.53 |
-| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$44.11 (30%)** |
-| The lanes' share alone | 57% saved | 66% saved | |
-| Work the same money buys | 1.50× | 1.28× | 1.43× |
-| Tokens kept out of main's context | 109.1M | 12.0M | 121.1M |
+| | Project 1 · a web game | Project 2 · the lanes plugin | Project 3 · a work planning doc (Bedrock) | All three |
+|---|---:|---:|---:|---:|
+| Session (KST) | Oct 11, 14:07–18:48 | Oct 11, 21:10 – Oct 12, 00:33 | Oct 12, 12:03–12:56 | |
+| Length | 4.7 h | 3.4 h | 0.9 h | 9.0 h |
+| Lane tasks | 29 | 7 | 3 | 39 |
+| All on Opus | $106.13 | $39.51 | $7.50 | $153.14 |
+| With lanes | $70.64 | $30.89 | $5.16 | $106.69 |
+| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (31%)** | **−$46.45 (30%)** |
+| The lanes' share alone | 57% saved | 66% saved | 63% saved | |
+| Work the same money buys | 1.50× | 1.28× | 1.45× | 1.44× |
+| Tokens kept out of main's context | 109.1M | 12.0M | 1.9M | 122.9M |
 
 - **"All on Opus"** prices the tokens the lanes used at Opus 5.5 rates. What main spent is the same on both sides.
-- **Why the two projects differ:** on the game, the lanes ran long playtests and regression runs (mid: 213 minutes). On the plugin, main spent most of the time changing the code itself and gave the lanes seven reviews and lookups. **The more side work a job has, the more the lanes save.**
+- **Why the projects differ:** on the game, the lanes ran long playtests and regression runs (mid: 213 minutes). On the plugin, main spent most of the time changing the code itself and gave the lanes seven reviews and lookups. The planning session was short, so main's share was large, but the low lane did the web research at 3% of Opus's price, so the lanes' share saved 63%. **The more side work a job has, the more the lanes save.**
 - **On a subscription (Pro, Max)** the bill doesn't change, but usage limits are drawn down by model price too, so the same limit stretches about 1.4× further.
 
 ## Project 1 · a web game
@@ -75,19 +75,46 @@ Each lane task (the `/lane tasks` ledger):
 - **Not just money.** The bugs T7 found (a model given as an ARN kept lanes from opening on macOS and Linux; the GovCloud region prefix) are fixed in this version. So are the ten issues T8 found; after the fixes, the mid lane reviewed them again (T10) and the gaps it still found were closed too. A lane instructions file a repo ships stays as trusted as its `CLAUDE.md`, which the README lists as a limit.
 - **Time at work:** main 151 minutes, mid 36, low 25. Nearly all the lanes' work ran while main was at work.
 
+## Project 3 · a work planning doc (through a gateway to Bedrock)
+
+A lunchtime session on a work Mac, through the company's LLM gateway to Amazon Bedrock, writing the planning doc for an internal tool. Anything that would name the company or the project (names, paths, account numbers) is left out.
+
+<p align="center"><img src="en/timeline-3.svg" width="880" alt="Project 3 over time: beside 14 minutes of main's work, the lanes worked 15 minutes on 3 tasks"></p>
+
+| Session | Model | Calls | Cost | On Opus |
+|---|---|---:|---:|---:|
+| main | Opus 5.5 | 20 | $3.79 | $3.79 |
+| mid lane | Sonnet 5.5 | 19 | $1.34 | $2.67 |
+| low lane | Haiku 5.5 | 11 | $0.03 | $1.04 |
+| **Total** | | 50 | **$5.16** | **$7.50** |
+
+Each lane task (the `/lane usage` ledger; a task's cost is its share of the day's lane cost by its number of requests, an estimate marked `≈`):
+
+| Task | Lane | Result | Took | Cost | On Opus | What |
+|---|---|---|---:|---:|---:|---|
+| T1 | low | DONE | 3 min | ≈$0.03 | ≈$1.04 | Collect and sort the evidence for the doc from the web |
+| T2 | mid | DONE | 3 min | ≈$0.56 | ≈$1.12 | Write the doc's policy, risks, success measures and rollout |
+| T3 | mid | DONE | 10 min | ≈$0.77 | ≈$1.55 | Following up T2, put the finished doc together |
+| | | | **16 min** | **$1.36** | **$3.71** | |
+
+- **It saves just the same at work.** This gateway answers with a Bedrock application inference profile's ARN where the model name would be, so up to 0.3.1 `/lane usage` showed $0. From 0.3.2 a request is priced by the model it asked for, and from 0.3.3 a day logged at $0 before that is priced again from its token totals.
+- **Research saves the most on the low lane.** The web research (T1) cost 3% of what it would have on Opus, and Sonnet wrote the doc (T2, T3) at half the price. The lanes work the same on a job with no code in it.
+- **Time at work:** main 14 minutes, mid 13, low 3. Of the lanes' 15 minutes, 6 ran while main was at work too.
+- **A short session leaves main a large share.** Main spent 74% of it ($3.79), so though the lanes' share saved 63%, the session as a whole saved 31%.
+
 ## Speed and amount of work
 
-| | Project 1 | Project 2 |
-|---|---:|---:|
-| Main at work | 154 min | 151 min |
-| Lanes at work | 265 min | 62 min |
-| of which alongside main | 115 min | 62 min |
-| If main had done the lanes' share too | 419 min (2.7×) | 213 min (1.4×) |
-| Work the same money buys | 1.50× | 1.28× |
+| | Project 1 | Project 2 | Project 3 |
+|---|---:|---:|---:|
+| Main at work | 154 min | 151 min | 14 min |
+| Lanes at work | 265 min | 62 min | 15 min |
+| of which alongside main | 115 min | 62 min | 6 min |
+| If main had done the lanes' share too | 419 min (2.7×) | 213 min (1.4×) | 29 min (2.1×) |
+| Work the same money buys | 1.50× | 1.28× | 1.45× |
 
 - **Main didn't wait.** Checks and lookups ran alongside main's work, so what main alone would have done one after another overlapped instead.
 - **"Main alone" assumes the same speed:** in the experiment below the three models took about as long (18–47 s). Time at work counts requests less than 4 minutes apart as one stretch.
-- **Amount of work:** what's saved buys more work on the same budget: 1.43× over both projects.
+- **Amount of work:** what's saved buys more work on the same budget: 1.44× over the three projects.
 
 ## Experiment: the same task on three models
 
@@ -118,6 +145,7 @@ Three tasks of the kind lanes take, each run three times on main's settings (Opu
 
 - **The data:** the session logs Claude Code keeps (`~/.claude/projects/<project>/<session>.jsonl`). Each model request has its model and tokens (input, cache write, cache read, output). A request logged over several lines counts once, by message id.
 - **What counts as a lane:** the named lane sessions only (`<project>-mid`, `<project>-low`, and project 1's earlier names `gaze-sonnet` and `gaze-haiku`). Unnamed one-off calls other tools made (conversation summaries and the like) are left out.
+- **A gateway's model names:** project 3's session logs carry a Bedrock application inference profile's ARN instead of a model name, so each request is priced at its session's model (main Opus 5.5, mid Sonnet 5.5, low Haiku 5.5). The script's `pricedBySession` counts those requests (all 50). The ARNs are removed from the published raw results.
 - **Prices:** Claude API list prices, the same as the plugin's price table, checked against the official pricing page (T6). Cache writes at the 1-hour rate.
 
   | Per million tokens | Input | Cache write | Cache read | Output |
@@ -127,7 +155,7 @@ Three tasks of the kind lanes take, each run three times on main's settings (Opu
   | Haiku 5.5 (prompt up to 100k tokens) | $0.10 | $0.20 | $0.01 | $0.50 |
   | Haiku 5.5 (over 100k) | $0.50 | $1 | $0.05 | $2.50 |
 
-- **Cross-checks:** for project 1, the README has what `/lane usage` showed that day (all on Opus $106.05, with lanes $70.61; 468, 767 and 147 calls). Recomputed from the session logs it is $106.13 and $70.64 (468, 769 and 147 calls), within 0.1%. For project 2, the lane ledger ($4.46, $13.09 on Opus) matches the session logs ($4.47, $13.09).
+- **Cross-checks:** for project 1, the README has what `/lane usage` showed that day (all on Opus $106.05, with lanes $70.61; 468, 767 and 147 calls). Recomputed from the session logs it is $106.13 and $70.64 (468, 769 and 147 calls), within 0.1%. For project 2, the lane ledger ($4.46, $13.09 on Opus) matches the session logs ($4.47, $13.09). For project 3, the lanes' share `/lane usage` priced again from token totals ($1.36, $3.71 on Opus) matches the session logs. `/lane usage` counted main at 17 calls and $2.74, under the session logs' 20 and $3.79; the requests made while the plugin was reloaded, several times during the session, look to be the ones missing. The tables use the session logs.
 - **Measure it yourself:** the scripts and the raw results are in [`measure/`](measure/).
 
   ```bash
@@ -139,7 +167,8 @@ Three tasks of the kind lanes take, each run three times on main's settings (Opu
 
   Your own project's figures for today are a `/lane usage` away, and the ledger per task is `/lane tasks`.
 - **Limits:**
-  - These are list prices, not an invoice.
+  - These are list prices, not an invoice. Bedrock's rates can differ by contract and region, but they move the lanes and main alike, so the share saved stays the same.
+  - Project 3's cost per task (`≈`) is an estimate by number of requests. The session totals are priced request by request.
   - "On Opus" assumes Opus would have done the same work with the same tokens.
   - The experiment's tasks are three short ones; on long, hard work the gap may differ.
   - The experiment ran with the other plugins in daily use switched on, the same for all three models.
