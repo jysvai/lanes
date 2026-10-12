@@ -1,6 +1,6 @@
 {
   "name": "lanes",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "On-demand lane sessions beside your main Claude Code session, from the first idea to release: a mid lane for side work that needs judgement (research, plans, reviews, tests), a low lane for search, scripts and crawling. Works on the Claude API, Amazon Bedrock, Vertex AI and Foundry. Status line, /lane, and tools the main model calls.",
   "author": { "name": "jysvai", "email": "yunseok1312@gmail.com", "url": "https://github.com/jysvai" },
   "homepage": "https://github.com/jysvai/lanes",

@@ -134,6 +134,24 @@ test('/lane usage adds up the main session and the lanes and says what the lanes
   expect(ran.text).toContain('  lanes                  914 calls    $26.67   on opus-5-5 $62.11  saved $35.44 (57%)')
 })
 
+test('a day logged at $0 because a gateway named every model its own way is priced from its tokens', async ($, on) => {
+  const day = (s: Record<string, number>) => JSON.stringify({ [today]: { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0, onMain: 0, ...s } })
+  const files: Record<string, string> = {
+    // $0.20 + $0.20 on Sonnet 5.5, $0.40 + $0.40 on Opus 5.5
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': day({ calls: 2, unpriced: 2, cacheRead: 2_000_000, output: 20_000 }),
+    // one of the two priced: the day can't be split, so it stays as it is
+    'C:/work/demo/.claude/lanes/state/low.spend.json': day({ calls: 2, unpriced: 1, cacheRead: 1_000_000, output: 10_000, cost: 0.01, onMain: 0.4 }),
+  }
+  ground(on, files, {}, null)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text
+
+  expect(ran).toContain('  mid   sonnet-5-5         2 calls     $0.40   on opus-5-5 $0.80  saved $0.40 (50%)')
+  expect(ran).toContain('  low   haiku-5-5          2 calls     $0.01   on opus-5-5 $0.40')
+  expect(ran).toContain('1 requests were on a model without a known price and count as $0.')
+  expect(ran).toContain("2 requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals")
+})
+
 test('/lane usage says where the saving came from: each task, the price gap, what main never read', async ($, on) => {
   const spent = JSON.stringify({ [today]: { calls: 25, unpriced: 0, input: 2000, cacheWrite: 310_000, cacheRead: 2_000_000, output: 30_000, cost: 1.12, onMain: 2.98 } })
   const task = (lane: string, goal: string, cost: number, onMain: number, verdict: string) => ({ lane, goal, started: 0, ended: 60_000, verdict, calls: 5, cost, onMain })

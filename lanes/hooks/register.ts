@@ -73,7 +73,7 @@ type Peer = { pid: number; name: string; status?: string; sessionId?: string; me
 type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens?: number }
 
 type Role = Tier | 'main'
-type Spend = { calls: number; unpriced: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
+type Spend = { calls: number; unpriced: number; repriced?: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
 /** one role's spend in this project per local day ("2026-10-11"), in dollars at API list prices */
 type SpendLog = Record<string, Spend>
 type Rate = readonly [input: number, cacheWrite: number, cacheRead: number, output: number]
@@ -411,6 +411,7 @@ function addSpend(a: Spend, b: Spend): Spend {
   return {
     calls: a.calls + b.calls,
     unpriced: a.unpriced + b.unpriced,
+    repriced: (a.repriced ?? 0) + (b.repriced ?? 0),
     input: a.input + b.input,
     cacheWrite: a.cacheWrite + b.cacheWrite,
     cacheRead: a.cacheRead + b.cacheRead,
@@ -420,12 +421,33 @@ function addSpend(a: Spend, b: Spend): Spend {
   }
 }
 
+// Before 0.3.2 a request a gateway answered under a model name of its own was logged at $0. A day
+// on which every request went that way is priced afterwards from its token totals, at the role's
+// model and at the base rate (Haiku's long-prompt rate needs each request's size). A day with
+// priced requests in it can't be split, and stays as it is.
+function repriced(s: Spend, model: string): Spend {
+  if (s.calls === 0 || s.unpriced !== s.calls) return s
+  const at = (m: string) => {
+    const rate = PRICES.find(([re]) => re.test(m))?.[1]
+
+    return rate && (s.input * rate[0] + s.cacheWrite * rate[1] + s.cacheRead * rate[2] + s.output * rate[3]) / 1e6
+  }
+  const cost = at(model)
+  if (cost === undefined) return s
+
+  return { ...s, unpriced: 0, repriced: s.calls, cost, onMain: at(cfg.main.model) ?? cost }
+}
+
 async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
+  let log: SpendLog
   try {
-    return JSON.parse(String(await $.fs.read(spendFile(r)))) as SpendLog
+    log = JSON.parse(String(await $.fs.read(spendFile(r)))) as SpendLog
   } catch {
     return {}
   }
+  for (const [day, s] of Object.entries(log)) log[day] = repriced(s, cfg[r].model)
+
+  return log
 }
 
 // Every model request of this session (subagents included) adds to its role's log for the day,
@@ -548,7 +570,12 @@ async function spendReport($: EngineInterface, all: boolean) {
   const saved = (s: Spend) => (s.onMain > s.cost ? `  saved ${$$(s.onMain - s.cost)} (${Math.round((1 - s.cost / s.onMain) * 100)}%)` : '')
   const row = (name: string, model: string, s: Spend, vs: boolean) =>
     `  ${name.padEnd(6)}${model.padEnd(14)}${String(s.calls).padStart(6)} calls ${$$(s.cost).padStart(9)}${vs ? `   on ${short('main')} ${$$(s.onMain)}${saved(s)}` : ''}`
-  const unpriced = total.unpriced > 0 ? `\n${total.unpriced} requests were on a model without a known price and count as $0.` : ''
+  const unpriced = [
+    ...(total.unpriced > 0 ? [`${total.unpriced} requests were on a model without a known price and count as $0.`] : []),
+    ...((total.repriced ?? 0) > 0
+      ? [`${total.repriced} requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals at each session's model; by task they stay at $0.`]
+      : []),
+  ].map(line => `\n${line}`).join('')
 
   return [
     `lane spend ${all ? `${days[0]} to ${days[days.length - 1]}` : `today (${today})`}, at API list prices`,
