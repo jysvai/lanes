@@ -73,7 +73,7 @@ type Peer = { pid: number; name: string; status?: string; sessionId?: string; me
 type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens?: number }
 
 type Role = Tier | 'main'
-type Spend = { calls: number; unpriced: number; repriced?: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
+type Spend = { calls: number; unpriced: number; repriced?: number; repricedCost?: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
 /** one role's spend in this project per local day ("2026-10-11"), in dollars at API list prices */
 type SpendLog = Record<string, Spend>
 type Rate = readonly [input: number, cacheWrite: number, cacheRead: number, output: number]
@@ -412,6 +412,7 @@ function addSpend(a: Spend, b: Spend): Spend {
     calls: a.calls + b.calls,
     unpriced: a.unpriced + b.unpriced,
     repriced: (a.repriced ?? 0) + (b.repriced ?? 0),
+    repricedCost: (a.repricedCost ?? 0) + (b.repricedCost ?? 0),
     input: a.input + b.input,
     cacheWrite: a.cacheWrite + b.cacheWrite,
     cacheRead: a.cacheRead + b.cacheRead,
@@ -435,7 +436,7 @@ function repriced(s: Spend, model: string): Spend {
   const cost = at(model)
   if (cost === undefined) return s
 
-  return { ...s, unpriced: 0, repriced: s.calls, cost, onMain: at(cfg.main.model) ?? cost }
+  return { ...s, unpriced: 0, repriced: s.calls, repricedCost: cost, cost, onMain: at(cfg.main.model) ?? cost }
 }
 
 async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
@@ -530,7 +531,9 @@ async function savings($: EngineInterface, lanes: Spend, day: string | undefined
     .sort(([, a], [, b]) => b.onMain - b.cost - (a.onMain - a.cost))
   const shown = tasks.slice(0, 8)
   const inTasks = tasks.reduce((n, [, t]) => n + t.cost, 0)
-  const outside = lanes.cost - inTasks
+  // what was priced afterwards from token totals: the task ledger kept no tokens to split it by
+  const early = lanes.repricedCost ?? 0
+  const outside = lanes.cost - inTasks - early
   const gaps = TIERS.map(t => [t, cheaper(cfg[t].model, cfg.main.model)] as const).filter(([, g]) => g !== undefined)
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`)
 
@@ -542,6 +545,7 @@ async function savings($: EngineInterface, lanes: Spend, day: string | undefined
           ...shown.map(([id, t]) =>
             `  ${id.padEnd(6)}${t.lane.padEnd(5)}${(t.verdict ?? 'open').padEnd(8)}${$$(t.cost).padStart(7)} instead of ${$$(t.onMain).padStart(7)}  saved ${$$(t.onMain - t.cost).padStart(6)}  ${t.goal.slice(0, 48)}`),
           ...(tasks.length > shown.length ? [`  …and ${tasks.length - shown.length} more (/lane tasks)`] : []),
+          ...(early >= 0.005 ? [`  logged at $0 before 0.3.2 and priced from token totals, not split by task: ${$$(early)}`] : []),
           ...(outside >= 0.005 ? [`  lane time outside a task (opening, notes): ${$$(outside)}`] : []),
         ]),
     'how',
@@ -571,6 +575,9 @@ async function spendReport($: EngineInterface, all: boolean) {
   const row = (name: string, model: string, s: Spend, vs: boolean) =>
     `  ${name.padEnd(6)}${model.padEnd(14)}${String(s.calls).padStart(6)} calls ${$$(s.cost).padStart(9)}${vs ? `   on ${short('main')} ${$$(s.onMain)}${saved(s)}` : ''}`
   const unpriced = [
+    ...(PRICES.some(([re]) => re.test(cfg.main.model))
+      ? []
+      : [`The main model in /config, ${cfg.main.model}, has no known price (a typo?), so what the work would have cost on main can't be worked out.`]),
     ...(total.unpriced > 0 ? [`${total.unpriced} requests were on a model without a known price and count as $0.`] : []),
     ...((total.repriced ?? 0) > 0
       ? [`${total.repriced} requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals at each session's model; by task they stay at $0.`]

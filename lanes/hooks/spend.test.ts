@@ -141,6 +141,8 @@ test('a day logged at $0 because a gateway named every model its own way is pric
     'C:/work/demo/.claude/lanes/state/mid.spend.json': day({ calls: 2, unpriced: 2, cacheRead: 2_000_000, output: 20_000 }),
     // one of the two priced: the day can't be split, so it stays as it is
     'C:/work/demo/.claude/lanes/state/low.spend.json': day({ calls: 2, unpriced: 1, cacheRead: 1_000_000, output: 10_000, cost: 0.01, onMain: 0.4 }),
+    // the task those requests were on, logged at $0 too
+    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({ T2: { lane: 'mid', goal: 'plan the no-show policy', started: 0, calls: 2, cost: 0, onMain: 0, verdict: 'DONE' } }),
   }
   ground(on, files, {}, null)
   await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
@@ -150,6 +152,22 @@ test('a day logged at $0 because a gateway named every model its own way is pric
   expect(ran).toContain('  low   haiku-5-5          2 calls     $0.01   on opus-5-5 $0.40')
   expect(ran).toContain('1 requests were on a model without a known price and count as $0.')
   expect(ran).toContain("2 requests logged at $0 before 0.3.2 (a gateway named the model its own way) are priced from their day's token totals")
+  // not counted as time outside a task: the ledger kept no tokens to split it by
+  expect(ran).toContain('  logged at $0 before 0.3.2 and priced from token totals, not split by task: $0.40')
+  expect(ran).toContain('  lane time outside a task (opening, notes): $0.01')
+  expect(ran).not.toContain('has no known price (a typo?)')
+})
+
+test('/lane usage says when the main model in /config has no known price', { options: { main_model: 'claude-oups-5-5[1m]' } }, async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': JSON.stringify({ [today]: { calls: 1, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0.1, onMain: 0.1 } }),
+  }
+  ground(on, files, {}, null)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+
+  expect((await $.command.run({ command: 'lane', args: 'usage' } as never)).text).toContain(
+    "The main model in /config, claude-oups-5-5[1m], has no known price (a typo?), so what the work would have cost on main can't be worked out.",
+  )
 })
 
 test('/lane usage says where the saving came from: each task, the price gap, what main never read', async ($, on) => {
