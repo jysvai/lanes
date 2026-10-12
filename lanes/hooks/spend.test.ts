@@ -57,6 +57,19 @@ test('a lane logs what each request cost and what the main model would have char
   expect(s.onMain.toFixed(2)).toBe('0.80')
 })
 
+test('a request a gateway answers under a name of its own is priced by the model it asked for', async ($, on) => {
+  const files: Record<string, string> = {}
+  const arn = 'arn:aws:bedrock:ap-northeast-2:123456789012:application-inference-profile/a1b2c3'
+  ground(on, files, { CLAUDE_LANE: 'mid' }, { model: arn, input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 10_000 })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-sonnet-5-5')
+
+  const s = spendOf(files, 'mid')
+  expect(s.unpriced).toBe(0)
+  expect(s.cost.toFixed(2)).toBe('0.20')
+  expect(s.onMain.toFixed(2)).toBe('0.40')
+})
+
 test("a lane's requests also add up on the task it is on", async ($, on) => {
   const files: Record<string, string> = {}
   ground(on, files, { CLAUDE_LANE: 'mid' }, { model: 'claude-sonnet-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 10_000 })

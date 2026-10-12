@@ -5,24 +5,24 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }) {
+function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, fs: { exists?: (path: string) => boolean; list?: (path: string) => unknown[] | undefined } = {}) {
   mock.env(on, env)
   const clock = mock.clock(on)
   files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-55c5-low', sessionId: 'lane-1' })
   files['C:/Users/me/.claude/sessions/22.json'] = JSON.stringify({ pid: 22, name: 'demo-main', sessionId: 'main-1' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('fs.exists', () => ({ value: true }))
   // the engine hands hooks native paths: backslashes on Windows, and on macOS a C:/ path,
   // which isn't absolute there, comes resolved against the plugin's folder
   const key = (path: string) => path.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
+  on('fs.exists', ($, e) => ({ value: fs.exists?.(key(e.path)) ?? true }))
   on('fs.list', ($, e) => ({
-    value: key(e.path).endsWith('/sessions')
+    value: (fs.list?.(key(e.path)) as never) ?? (key(e.path).endsWith('/sessions')
       ? Object.keys(files)
           .filter(f => f.startsWith(`${key(e.path)}/`))
           .map(f => ({ name: f.slice(key(e.path).length + 1), kind: 'file' as const, size: 1, mtimeMs: 0, isLink: false }))
       : key(e.path).endsWith('/lanes/out')
         ? ['T3.md', 'T3-phone.png', 'T4-src-c01.json', 'T4.md', 'T4-err.log'].map((name, i) => ({ name, kind: 'file' as const, size: 1, mtimeMs: i, isLink: false }))
-        : [],
+        : []),
   }))
   on('fs.read', ($, e) => (key(e.path) in files ? { value: files[key(e.path)] ?? '' } : { deny: 'no such file' }))
   on('fs.write', ($, e) => {
@@ -215,6 +215,59 @@ test('on macOS and Linux a lane opens through bash, with its settings in the env
   expect(sent.run).toContain('"LANES_PROJECT":"/Users/bob/Jack’s App"')
   expect(sent.run).toMatch(/"LANES_SLUG":"jack-s-app-[0-9a-f]{4}"/)
   expect(sent.run).toContain('"LANES_PERMISSION_MODE":"auto"')
+})
+
+for (const [os, env, cwd, start] of [
+  ['macOS', { HOME: '/Users/me' }, '/Users/me/', 'mkdir -p ~/work/my-project && cd ~/work/my-project && claude'],
+  ['Windows', { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, 'c:\\users\\Me', 'mkdir -Force ~\\work\\my-project; cd ~\\work\\my-project; claude'],
+] as const) {
+  test(`on ${os}, a main session in the home folder says from the start how to start in a project folder instead`, async ($, on) => {
+    const sent: { to?: unknown; text?: string; run?: string } = {}
+    ground(on, sent, {}, true, env)
+    await $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+    const policy = await policyOf($ as never)
+    const status = (await $.command.run({ command: 'lane', args: 'status' } as never)).text
+    const opened = (await $.command.run({ command: 'lane', args: 'mid check the tests' } as never)).text
+
+    expect(policy).toContain(`never saves trust for it`)
+    expect(policy).toContain(`  ${start}\nTell the person this in your first reply`)
+    expect(status).toStartWith('⚠ This session runs in your home folder')
+    expect(status).toContain(start)
+    expect(opened).toEndWith('Its window asks to trust your home folder first: accept it there.')
+  })
+}
+
+for (const [os, env, cwd, start] of [
+  ['macOS', { HOME: '/Users/me' }, '/Users/me/Desktop', 'cd "/Users/me/Desktop/app" && claude'],
+  ['Windows', { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, 'C:\\Users\\me\\Desktop', 'cd "C:\\Users\\me\\Desktop\\app"; claude'],
+] as const) {
+  test(`on ${os}, a main session in a folder of several projects (the Desktop) says to start in one of them instead`, async ($, on) => {
+    // two repos and a plain folder on the Desktop, which is in no repo itself
+    ground(on, {}, {}, true, env, {
+      exists: p => !p.endsWith('/.git') || /\/Desktop\/(app|site)\/\.git$/.test(p),
+      list: p => (p.endsWith('/Desktop')
+        ? [['app', 'dir'], ['site', 'dir'], ['photos', 'dir'], ['.cache', 'dir'], ['todo.txt', 'file']].map(([name, kind]) => ({ name, kind, size: 1, mtimeMs: 0, isLink: false }))
+        : undefined),
+    })
+    await $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+    const policy = await policyOf($ as never)
+    const status = (await $.command.run({ command: 'lane', args: 'status' } as never)).text
+
+    expect(policy).toContain('holds several projects (app, site)')
+    expect(policy).toContain(`  ${start}\nTell the person this in your first reply`)
+    expect(status).toStartWith('⚠ This session runs in a folder that holds several projects')
+  })
+}
+
+test('a main session in a project folder says nothing about the home folder', async ($, on) => {
+  const sent: { to?: unknown; text?: string; run?: string } = {}
+  ground(on, sent, {}, true, { HOME: '/Users/me' })
+  await $.session.start({ cwd: '/Users/me/work/demo', surface: 'terminal', isInteractive: true })
+  const policy = await policyOf($ as never)
+  const status = (await $.command.run({ command: 'lane', args: 'status' } as never)).text
+
+  expect(policy).not.toContain('home folder')
+  expect(status).not.toContain('home folder')
 })
 
 // The models a lane opens with, read off the script's arguments.

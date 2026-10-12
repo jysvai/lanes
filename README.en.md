@@ -244,6 +244,10 @@ lanes  sonnet ● T3 2m +1 · haiku ○
 - A managed PC whose execution policy blocks every `.ps1` file is fine: the plugin runs its script as a script block, not a file, and starts `claude.exe` or `claude.cmd`, not npm's `claude.ps1`. It doesn't work under AppLocker or WDAC Constrained Language Mode.
 - On macOS a lane's window opens with `open -a Terminal`, which asks for no Automation permission. The new window gets this session's PATH and `CLAUDE_CONFIG_DIR`.
 - What a lane can't do: Edit, Write inside the repo outside `.claude/lanes/`, and git commit · push · reset · checkout · restore · stash · clean · switch · rebase · merge · cherry-pick · revert · apply · am · rm · mv. Changing files through Bash (`sed -i` and the like) isn't blocked, so bear that in mind with `bypassPermissions`.
+- Start Claude Code in a project's folder: the lanes keep their history (`.claude/lanes`) in the folder you start in.
+  - In your home folder (`~`), Claude Code never saves trust, so every lane window asks for it again and a background lane can't open.
+  - In a folder of several projects, such as the Desktop, they all share one history, so a lane could read another project's reports and notes.
+  - Started in either, the lanes say so in the status line, in `/lane` and in main's first reply, with the command for your OS to start in a project's folder.
 - Where auto mode isn't available, change the lane permission mode in `/config`. Nobody answers a prompt in a background lane, so pick `dontAsk` (with an allowlist) or `manual` with windows.
 - A lane started inside one of Claude's tool calls (Bash and so on) never receives messages: it inherits the child-session markers. `/lane` and `send` start lanes from the session itself, so they're fine. To start one by hand, use a terminal you opened yourself:
   - Windows: `powershell -ExecutionPolicy Bypass -File lanes\bin\lanes.ps1 start -Project <project folder>`

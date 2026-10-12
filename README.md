@@ -244,6 +244,10 @@ lanes  sonnet ● T3 2m +1 · haiku ○
 - 회사 PC처럼 실행 정책이 `.ps1` 파일을 모두 막아도 돼요. 플러그인은 스크립트를 파일이 아니라 스크립트 블록으로 실행하고, claude도 npm의 `claude.ps1` 대신 `claude.exe`나 `claude.cmd`로 띄웁니다. 다만 AppLocker·WDAC의 제한 언어 모드(Constrained Language Mode) PC에서는 동작하지 않아요.
 - macOS에서는 레인 창을 `open -a Terminal`로 열어서 "다른 앱 제어" 권한을 묻지 않아요. 새 창은 지금 세션의 PATH와 `CLAUDE_CONFIG_DIR`을 이어받습니다.
 - 레인이 막혀 있는 것: Edit, 레포 안에서 `.claude/lanes/` 밖에 Write, git의 commit · push · reset · checkout · restore · stash · clean · switch · rebase · merge · cherry-pick · revert · apply · am · rm · mv. Bash로 파일을 바꾸는 것(`sed -i` 등)까지는 막지 못하니, 권한 모드를 `bypassPermissions`로 둘 때는 이 점을 감안하세요.
+- Claude Code는 프로젝트 폴더에서 켜세요. 레인의 이력(`.claude/lanes`)은 켠 폴더에 하나씩 생겨요.
+  - 홈 폴더(`~`): Claude Code가 신뢰를 저장하지 않아서 레인 창이 열 때마다 신뢰를 다시 묻고, background 레인은 아예 못 열어요.
+  - 바탕화면처럼 여러 프로젝트를 담은 폴더: 그 안의 프로젝트들이 이력 하나를 같이 써서, 레인이 다른 프로젝트의 보고서와 노트를 읽을 수 있어요.
+  - 이런 곳에서 켜면 상태 줄과 `/lane`, 메인의 첫 답이 그 OS에 맞는 명령어로 프로젝트 폴더에서 켜라고 알려줘요.
 - auto 모드를 못 쓰는 계정이면 `/config`에서 레인 권한 모드를 바꾸세요. background 레인은 권한을 물어도 답할 사람이 없어서, `dontAsk`(허용 목록을 미리 설정)나 `manual` + window를 권해요.
 - Claude의 도구 호출(Bash 등) 안에서 레인을 띄우면 메시지를 받지 못합니다. "자식 세션" 표시를 물려받기 때문이에요. `/lane`과 `send`는 세션 본체에서 띄우니 괜찮습니다. 손으로 띄울 때는 직접 연 터미널에서 띄우세요:
   - Windows: `powershell -ExecutionPolicy Bypass -File lanes\bin\lanes.ps1 start -Project <프로젝트 폴더>`
