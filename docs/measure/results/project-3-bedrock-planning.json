@@ -133,5 +133,40 @@
  "total": {
   "cost": 4.57690425,
   "allOnOpus": 6.920611299999999
+ },
+ "carry": {
+  "tasks": [
+   {
+    "id": "T1",
+    "lane": "low",
+    "read": 40353,
+    "requests": 1,
+    "cost": 0.0080706
+   },
+   {
+    "id": "T2",
+    "lane": "mid",
+    "read": 17114,
+    "requests": 5,
+    "cost": 0.017114
+   },
+   {
+    "id": "T3",
+    "lane": "mid",
+    "read": 35589,
+    "requests": 0,
+    "cost": 0
+   }
+  ],
+  "cost": 0.0251846,
+  "compactions": []
+ },
+ "mainWork": {
+  "look": 11,
+  "command": 0,
+  "browse": 0,
+  "edit": 6,
+  "handoff": 3,
+  "tookChars": 42772
  }
 }

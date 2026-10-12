@@ -23,8 +23,8 @@
 | The lanes' share alone | 57% saved | 66% saved | 63% saved | 50% saved | |
 | Work the same money buys | 1.50× | 1.28× | 1.51× | 1.04× | 1.31× |
 | Tokens kept out of main's context | 109.1M | 12.0M | 1.9M | 3.8M | 126.7M |
-| Saved in main's context (estimate) | ≈$6.13 | ≈$5.41 | being measured again | ≈$2.39 | |
-| With that counted | ≈37% | ≈31% | | ≈8% | |
+| Saved in main's context (estimate) | ≈$6.13 | ≈$5.41 | ≈$0.03 | ≈$2.39 | |
+| With that counted | ≈37% | ≈31% | ≈34% | ≈8% | |
 
 - **"All on Opus"** prices the tokens the lanes used at Opus 5.5 rates. What main spent is the same on both sides.
 - **Why the projects differ:** on the game, the lanes ran long playtests and regression runs (mid: 213 minutes). On the plugin, main spent most of the time changing the code itself and gave the lanes seven reviews and lookups. The planning session was short, so main's share was large, but the low lane did the web research at 3% of Opus's price, so the lanes' share saved 63%. On the web service, main did nearly all the work itself (2 lane tasks). **The more side work goes to the lanes, the more they save.**
@@ -137,13 +137,13 @@ The files, logs and search results the lanes read never pile up in main's conver
 
 | | Project 1 | Project 2 | Project 3 | Project 4 |
 |---|---:|---:|---:|---:|
-| What the lanes read, summed over tasks | 802k tokens | 388k tokens | being measured again | 179k tokens |
-| Saved in main's context | ≈$6.13 | ≈$5.41 | | ≈$2.39 |
-| Together with the price-gap saving | ≈$41.61 of ≈$112.25 (37%) | ≈$14.03 of ≈$44.92 (31%) | | ≈$4.26 of ≈$51.89 (8%) |
+| What the lanes read, summed over tasks | 802k tokens | 388k tokens | 93k tokens | 179k tokens |
+| Saved in main's context | ≈$6.13 | ≈$5.41 | ≈$0.03 | ≈$2.39 |
+| Together with the price-gap saving | ≈$41.61 of ≈$112.25 (37%) | ≈$14.03 of ≈$44.92 (31%) | ≈$2.37 of ≈$6.95 (34%) | ≈$4.26 of ≈$51.89 (8%) |
 
 - **How:** what a lane read for a task is how far its prompt grew over the task (its last request's prompt less its first's). Each main request after the lane answered is taken to read that again, at Opus's cache-read price.
 - **Counted on the low side.** A conversation that much fuller would have been compacted sooner, so requests from the one where (main's prompt + what the lane read) reaches the size main actually compacted at are left out, as are requests after a compaction. What the lane spent inside the task is already in "On Opus" and isn't counted again; cache rewrites after an expiry aren't counted either.
-- **Project 3** is from a work computer and is being measured again the same way.
+- **The shorter the session, the smaller it is.** Project 3 ran 54 minutes, so few main requests came after the lanes answered, and nothing was compacted. With no compaction to go by, main's context is taken to fill at the largest size it actually reached (the most conservative choice), which leaves ≈$0.03. It grows with long sessions where the lanes read a lot early.
 - From 0.3.7, `/lane usage` works this out the same way (`main's context`).
 
 ## Speed and amount of work
