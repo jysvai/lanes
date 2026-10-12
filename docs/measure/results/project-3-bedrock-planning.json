@@ -5,16 +5,18 @@
  "roles": {
   "main": {
    "calls": 20,
-   "cost": 3.7922203999999993,
+   "cost": 3.2126718999999997,
    "onOpus": 3.7922203999999993,
    "tokensIn": 1323184,
    "output": 75134,
    "first": "2026-10-12T03:08:52.669Z",
    "last": "2026-10-12T03:56:53.098Z",
    "models": [
-    "a gateway's Bedrock application inference profile (ARN removed)"
+    "a gateway's Bedrock application inference profile A (ARN removed)",
+    "a gateway's Bedrock application inference profile B, the mid lane's (ARN removed)"
    ],
-   "pricedBySession": 20,
+   "pricedByLaneName": 7,
+   "pricedBySession": 13,
    "unpriced": 0
   },
   "main subagents": {
@@ -26,6 +28,7 @@
    "first": null,
    "last": null,
    "models": [],
+   "pricedByLaneName": 0,
    "pricedBySession": 0,
    "unpriced": 0
   },
@@ -38,9 +41,10 @@
    "first": "2026-10-12T03:34:28.098Z",
    "last": "2026-10-12T03:52:48.611Z",
    "models": [
-    "a gateway's Bedrock application inference profile (ARN removed)"
+    "a gateway's Bedrock application inference profile B, the mid lane's (ARN removed)"
    ],
-   "pricedBySession": 19,
+   "pricedByLaneName": 19,
+   "pricedBySession": 0,
    "unpriced": 0
   },
   "low": {
@@ -52,9 +56,10 @@
    "first": "2026-10-12T03:34:26.155Z",
    "last": "2026-10-12T03:37:00.143Z",
    "models": [
-    "a gateway's Bedrock application inference profile (ARN removed)"
+    "a gateway's Bedrock application inference profile C, the low lane's (ARN removed)"
    ],
-   "pricedBySession": 11,
+   "pricedByLaneName": 11,
+   "pricedBySession": 0,
    "unpriced": 0
   }
  },
@@ -126,7 +131,7 @@
   "tokensIn": 1903567
  },
  "total": {
-  "cost": 5.15645275,
-  "allOnOpus": 7.500159799999999
+  "cost": 4.57690425,
+  "allOnOpus": 6.920611299999999
  }
 }

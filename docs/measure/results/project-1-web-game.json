@@ -13,7 +13,10 @@
    "last": "2026-10-11T09:47:49.422Z",
    "models": [
     "claude-opus-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "main subagents": {
    "calls": 0,
@@ -23,7 +26,10 @@
    "output": 0,
    "first": null,
    "last": null,
-   "models": []
+   "models": [],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "mid": {
    "calls": 769,
@@ -35,7 +41,10 @@
    "last": "2026-10-11T09:47:51.599Z",
    "models": [
     "claude-sonnet-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "low": {
    "calls": 147,
@@ -47,7 +56,10 @@
    "last": "2026-10-11T09:40:41.143Z",
    "models": [
     "claude-haiku-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   }
  },
  "startMs": 1791695256653,
@@ -342,5 +354,238 @@
  "total": {
   "cost": 70.64184972,
   "allOnOpus": 106.1251514
+ },
+ "carry": {
+  "tasks": [
+   {
+    "id": "T1",
+    "lane": "mid",
+    "read": 80168,
+    "requests": 53,
+    "cost": 0.8497808
+   },
+   {
+    "id": "T2",
+    "lane": "low",
+    "read": 58597,
+    "requests": 65,
+    "cost": 0.761761
+   },
+   {
+    "id": "T3",
+    "lane": "mid",
+    "read": 6031,
+    "requests": 34,
+    "cost": 0.0410108
+   },
+   {
+    "id": "T4",
+    "lane": "low",
+    "read": 0,
+    "requests": 31,
+    "cost": 0
+   },
+   {
+    "id": "T5",
+    "lane": "mid",
+    "read": 93821,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T6",
+    "lane": "low",
+    "read": 47738,
+    "requests": 170,
+    "cost": 1.623092
+   },
+   {
+    "id": "T7",
+    "lane": "mid",
+    "read": 0,
+    "requests": 191,
+    "cost": 0
+   },
+   {
+    "id": "T10",
+    "lane": "mid",
+    "read": 0,
+    "requests": 148,
+    "cost": 0
+   },
+   {
+    "id": "T12",
+    "lane": "mid",
+    "read": 64615,
+    "requests": 76,
+    "cost": 0.982148
+   },
+   {
+    "id": "T13",
+    "lane": "mid",
+    "read": 0,
+    "requests": 108,
+    "cost": 0
+   },
+   {
+    "id": "T14",
+    "lane": "mid",
+    "read": 0,
+    "requests": 100,
+    "cost": 0
+   },
+   {
+    "id": "T16",
+    "lane": "mid",
+    "read": 37793,
+    "requests": 52,
+    "cost": 0.3930472
+   },
+   {
+    "id": "T17",
+    "lane": "mid",
+    "read": 0,
+    "requests": 76,
+    "cost": 0
+   },
+   {
+    "id": "T19",
+    "lane": "low",
+    "read": 59210,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T20",
+    "lane": "mid",
+    "read": 38220,
+    "requests": 7,
+    "cost": 0.053508
+   },
+   {
+    "id": "T21",
+    "lane": "mid",
+    "read": 0,
+    "requests": 18,
+    "cost": 0
+   },
+   {
+    "id": "T23",
+    "lane": "low",
+    "read": 46170,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T22",
+    "lane": "mid",
+    "read": 14381,
+    "requests": 2,
+    "cost": 0.0057524
+   },
+   {
+    "id": "T24",
+    "lane": "mid",
+    "read": 58619,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T26",
+    "lane": "low",
+    "read": 46352,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T25",
+    "lane": "mid",
+    "read": 0,
+    "requests": 2,
+    "cost": 0
+   },
+   {
+    "id": "T27",
+    "lane": "mid",
+    "read": 0,
+    "requests": 61,
+    "cost": 0
+   },
+   {
+    "id": "T28",
+    "lane": "low",
+    "read": 42845,
+    "requests": 64,
+    "cost": 0.548416
+   },
+   {
+    "id": "T29",
+    "lane": "mid",
+    "read": 24302,
+    "requests": 60,
+    "cost": 0.291624
+   },
+   {
+    "id": "T30",
+    "lane": "mid",
+    "read": 44869,
+    "requests": 52,
+    "cost": 0.46663760000000004
+   },
+   {
+    "id": "T31",
+    "lane": "low",
+    "read": 20822,
+    "requests": 27,
+    "cost": 0.1124388
+   },
+   {
+    "id": "T32",
+    "lane": "mid",
+    "read": 0,
+    "requests": 14,
+    "cost": 0
+   },
+   {
+    "id": "T33",
+    "lane": "low",
+    "read": 0,
+    "requests": 15,
+    "cost": 0
+   },
+   {
+    "id": "T34",
+    "lane": "mid",
+    "read": 17727,
+    "requests": 0,
+    "cost": 0
+   }
+  ],
+  "cost": 6.1292166,
+  "compactions": [
+   {
+    "at": "2026-10-11T06:06:57.491Z",
+    "pre": 468887,
+    "trigger": "auto"
+   },
+   {
+    "at": "2026-10-11T08:34:37.851Z",
+    "pre": 467306,
+    "trigger": "auto"
+   },
+   {
+    "at": "2026-10-11T16:36:10.930Z",
+    "pre": 467561,
+    "trigger": "auto"
+   }
+  ]
+ },
+ "mainWork": {
+  "look": 194,
+  "command": 191,
+  "browse": 0,
+  "edit": 134,
+  "handoff": 30,
+  "tookChars": 539319
  }
 }

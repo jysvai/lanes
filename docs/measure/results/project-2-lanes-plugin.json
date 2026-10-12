@@ -13,7 +13,10 @@
    "last": "2026-10-11T15:33:50.312Z",
    "models": [
     "claude-opus-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "main subagents": {
    "calls": 8,
@@ -25,7 +28,10 @@
    "last": "2026-10-11T12:50:46.979Z",
    "models": [
     "claude-haiku-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "mid": {
    "calls": 81,
@@ -37,7 +43,10 @@
    "last": "2026-10-11T14:54:00.488Z",
    "models": [
     "claude-sonnet-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   },
   "low": {
    "calls": 41,
@@ -49,7 +58,10 @@
    "last": "2026-10-11T14:56:14.080Z",
    "models": [
     "claude-haiku-5-5"
-   ]
+   ],
+   "pricedByLaneName": 0,
+   "pricedBySession": 0,
+   "unpriced": 0
   }
  },
  "startMs": 1791720638595,
@@ -150,5 +162,79 @@
  "total": {
   "cost": 30.8895607,
   "allOnOpus": 39.51276935
+ },
+ "carry": {
+  "tasks": [
+   {
+    "id": "T3",
+    "lane": "low",
+    "read": 33569,
+    "requests": 150,
+    "cost": 1.00707
+   },
+   {
+    "id": "T4",
+    "lane": "mid",
+    "read": 48580,
+    "requests": 125,
+    "cost": 1.2145
+   },
+   {
+    "id": "T5",
+    "lane": "low",
+    "read": 75256,
+    "requests": 69,
+    "cost": 1.0385328
+   },
+   {
+    "id": "T6",
+    "lane": "mid",
+    "read": 69405,
+    "requests": 61,
+    "cost": 0.846741
+   },
+   {
+    "id": "T7",
+    "lane": "mid",
+    "read": 67935,
+    "requests": 0,
+    "cost": 0
+   },
+   {
+    "id": "T8",
+    "lane": "mid",
+    "read": 60768,
+    "requests": 71,
+    "cost": 0.8629056
+   },
+   {
+    "id": "T9",
+    "lane": "low",
+    "read": 32933,
+    "requests": 67,
+    "cost": 0.44130220000000003
+   }
+  ],
+  "cost": 5.4110516,
+  "compactions": [
+   {
+    "at": "2026-10-11T14:41:54.538Z",
+    "pre": 467551,
+    "trigger": "auto"
+   },
+   {
+    "at": "2026-10-11T17:13:42.346Z",
+    "pre": 424889,
+    "trigger": "auto"
+   }
+  ]
+ },
+ "mainWork": {
+  "look": 103,
+  "command": 131,
+  "browse": 0,
+  "edit": 93,
+  "handoff": 7,
+  "tookChars": 393646
  }
 }

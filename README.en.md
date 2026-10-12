@@ -34,6 +34,7 @@ The lanes split the work **by what each model is good at**.
 - A lane answers in four lines at most. The full report goes to `.claude/lanes/out/T<n>.md`.
 - Work handed to a busy lane waits in its queue and goes over as soon as the task before it is done.
 - What the lanes map (where things are, lists of files) builds up in `.claude/lanes/notes/`, so nobody searches twice.
+- Once main has read over 40k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only (you don't see it), that such work can go to a lane. Reading the code it is about to change stays main's.
 - The fallbacks are all 5.x too. **A lane never runs on Sonnet 4 or Haiku 4**: set in the config they give way to the default, and where no 5.x model is to be had a lane fails rather than drop to an older one.
 
 ## For everyone, at every stage
@@ -108,22 +109,23 @@ A real record of one web game project worked on all afternoon (4.6 hours), next 
 
 - **The lanes' own share came out 57% cheaper.** mid (Sonnet) went from $52.30 to $26.15, half; low (Haiku) from $9.81 to $0.52, 95% less.
 - **On a subscription (Pro, Max)** the bill stays the same, but usage limits are drawn down roughly by model price too: about **1.5×** the work from the same limits.
-- **It saves more than the table shows.** The screenshots, logs and search results the lanes read (over 100 million tokens in this session) never piled up in main's conversation, so every later turn of main stayed light. That part isn't in the table.
+- **It saves more than the table shows.** The screenshots, logs and search results the lanes read never piled up in main's conversation, so main's later requests didn't read them again. In this session that comes to **about $6.13**. It is an estimate, so it isn't in the table; from 0.3.7, `/lane usage` shows it on its own.
 - **You get more than a lower bill.** Main's context stays light, so it stays on track through long work; checks and research run while main keeps working; and every task's result and cost is on record.
 - **How it's counted:** every request in the session logs, its tokens priced at its model's [API list price](https://platform.claude.com/docs/en/about-claude/pricing) (cache writes at the 1-hour rate). A week, a month and a year take this session as one working day.
 
-### Measured on three projects
+### Measured on four projects
 
-<p align="center"><img src="docs/en/projects.svg" width="880" alt="Three projects measured: all on Opus 153.14 dollars, with lanes 106.69 dollars, 46.45 dollars (30%) saved"></p>
+<p align="center"><img src="docs/en/projects.svg" width="880" alt="Four projects measured: all on Opus 202.06 dollars, with lanes 153.74 dollars, 48.32 dollars (24%) saved"></p>
 
-| | Project 1 · a web game | Project 2 · the lanes plugin | Project 3 · a work planning doc (Bedrock) | All three |
-|---|---:|---:|---:|---:|
-| Session | 4.7 h · 29 lane tasks | 3.4 h · 7 lane tasks | 0.9 h · 3 lane tasks | 9.0 h |
-| All on Opus | $106.13 | $39.51 | $7.50 | $153.14 |
-| With lanes | $70.64 | $30.89 | $5.16 | $106.69 |
-| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (31%)** | **−$46.45 (30%)** |
+| | Project 1 · a web game | Project 2 · the lanes plugin | Project 3 · a work planning doc (Bedrock) | Project 4 · a Python web service | All four |
+|---|---:|---:|---:|---:|---:|
+| Session | 4.7 h · 29 lane tasks | 3.4 h · 7 lane tasks | 0.9 h · 3 lane tasks | 5.1 h · 2 lane tasks | 14.1 h |
+| All on Opus | $106.13 | $39.51 | $6.92 | $49.50 | $202.06 |
+| With lanes | $70.64 | $30.89 | $4.58 | $47.63 | $153.74 |
+| **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (34%)** | **−$1.87 (4%)** | **−$48.32 (24%)** |
+| In main's context (estimate) | ≈$6.13 | ≈$5.41 | being measured again | ≈$2.39 | |
 
-Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. Project 3 is a planning doc written on a work computer, through the company's gateway to Amazon Bedrock; the low lane did the web research at 3% of Opus's price, and the lanes' share saved 63%. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
+Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. Project 3 is a planning doc written on a work computer, through the company's gateway to Amazon Bedrock; the low lane did the web research at 3% of Opus's price, and the lanes' share saved 63%. In project 4 main did nearly everything itself (2 lane tasks), so it saved only 4%; that is why 0.3.7 tells main to hand off when it reads a lot itself. The last row is what main's later requests would have read again had main read the lanes' material itself; it is an estimate, so it isn't in the saving. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
 
 See your own project's numbers with `/lane usage`:
 
@@ -136,17 +138,26 @@ lane spend today (2026-10-11), at API list prices
   all                   1382 calls    $70.61   on opus-5-5 $106.05  saved $35.44 (33%)
 ```
 
-Below the table it says **where and how the saving came from** (each task has its own ledger entry):
+Below the table it says **where and how the saving came from**, and **what main did itself** (each task has its own ledger entry). An example made from project 4's logs:
 
 ```
 where it came from, by task (most saved first)
-  T1    mid  PARTIAL   $1.56 instead of   $3.11  saved  $1.55  Review the uncommitted changes under lanes/
-  T2    low  DONE      $0.02 instead of   $0.78  saved  $0.76  Inventory, no edits: in README.md, docs/*.svg
+  T1    mid  DONE      $1.11 instead of   $2.22  saved  $1.11 (50%)  Find the API keys and sign-up steps it needs
+  T2    mid  PARTIAL   $0.77 instead of   $1.53  saved  $0.77 (50%)  Code review only (do NOT edit project files)
 how
   the same work on cheaper models: per token, sonnet-5-5 costs 1/2 of opus-5-5, haiku-5-5 costs 1/40–1/20 of opus-5-5
-  and main's context stays light: the lanes took in 244k tokens (their prompts, and the files,
-  logs and results they read) that main never read, nor carried through its later turns. That part is not in the table.
+main's context
+  the lanes read 179k tokens for 2 tasks that main never took in. Had main read it itself, each of its later
+  requests would have read it again, until its context, that much fuller, filled and started over: ≈$2.39 on opus-5-5
+  (T1 106k × 72 requests, T2 73k × 59)
+  with that, the lanes saved ≈$4.26 of ≈$51.89 (8%)
+what main did itself
+  134 lookups and 196 other commands, whose output (≈161k tokens) it read and carried; 84 browser steps; 68 edits; 2 hand-offs to the lanes.
+  Lookups, logs and runs are lane work: what main reads, each later request of its own reads again.
 ```
+
+- **main's context:** had main's conversation held what the lanes read, its next requests would have read it again (at Opus's cache-read price). A conversation that much fuller would also have been compacted sooner, so requests past that point aren't counted. It is an estimate, marked `≈`.
+- **what main did itself:** how many lookups (read-only commands included), other commands, browser steps and edits main made itself, and how much its lookups and commands brought into its conversation: how much of it could have gone to a lane.
 
 ## Install
 
@@ -191,7 +202,7 @@ When Claude Code runs on Amazon Bedrock, Google Vertex AI or Microsoft Foundry (
 /lane <what you want done>    main splits it up and sees it through
 /lane status                  lanes, tasks you can follow up on, latest reports, today's lane spend
 /lane tasks                   the ledger: how each task ended, how long it took, what it cost
-/lane usage [all]             spend today (all: since logging began) and the saving against Opus
+/lane usage [all]             spend today (all: since logging began), the saving against Opus, what main did itself
 /lane mid <task>              hand a task straight to the mid lane (low works the same)
 /lane start | stop [mid|low]  open ahead of time, or close
 /lane help                    the list of commands

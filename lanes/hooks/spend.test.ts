@@ -6,7 +6,7 @@ import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // Project "demo" on Windows, its files in memory; each model request answers with `usage`.
-function ground(on: On, files: Record<string, string>, env: Record<string, string>, usage: Record<string, unknown> | null) {
+function ground(on: On, files: Record<string, string>, env: Record<string, string>, usage: Record<string, unknown> | null | (() => Record<string, unknown>)) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', ...env })
   mock.clock(on)
   // on macOS a C:/ path isn't absolute and comes resolved against the plugin's folder
@@ -26,7 +26,7 @@ function ground(on: On, files: Record<string, string>, env: Record<string, strin
   on('command.register', () => ({ value: { command: 'lane' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__lanes__send' } }))
   on('turn.step', async function* ($, e) {
-    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage } as never
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: typeof usage === 'function' ? usage() : usage } as never
   })
 }
 
@@ -203,4 +203,136 @@ test('/lane usage says where the saving came from: each task, the price gap, wha
   expect(text).toContain('  lane time outside a task (opening, notes): $0.10')
   expect(text).toContain('per token, sonnet-5-5 costs 1/2 of opus-5-5, haiku-5-5 costs 1/40–1/20 of opus-5-5')
   expect(text).toContain('the lanes took in 312k tokens')
+})
+
+// what a compaction leaves: one message
+const summary = { role: 'user', text: 'a summary of the conversation so far', toolUses: [] }
+
+// a request whose whole prompt, `k` thousand tokens, is read from the cache
+const cached = (model: string, k: number) => ({ model, input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: k * 1000, output_tokens: 0 })
+
+test('a lane notes how far its prompt grew over a task: what it read for it', async ($, on) => {
+  const files: Record<string, string> = {}
+  const prompts = [40, 90, 150]
+  let i = 0
+  ground(on, files, { CLAUDE_LANE: 'mid' }, () => cached('claude-sonnet-5-5', prompts[i++] ?? 0))
+  on('turn.start', ($, e) => e as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T3] survey the logs' } as never)
+  for (const _ of prompts) await request($, 'claude-sonnet-5-5')
+
+  const t = JSON.parse(files['C:/work/demo/.claude/lanes/state/mid.tasks.json'] ?? '{}').T3
+  expect([t.firstPrompt, t.lastPrompt]).toEqual([40_000, 150_000])
+})
+
+test("/lane usage puts a figure on main's lighter context: what a task's reading would have cost main to carry until its context started over", async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': JSON.stringify({ [today]: { calls: 5, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 1, onMain: 2 } }),
+    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({
+      T3: { lane: 'mid', goal: 'survey the logs', started: 0, ended: 0, verdict: 'DONE', calls: 5, cost: 1, onMain: 2, firstPrompt: 40_000, lastPrompt: 140_000 },
+    }),
+  }
+  // main's prompt grows 100k → 300k; at 340k the engine compacts it on its own; then 40k and on
+  const before = [100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300]
+  const after = [40, 60, 80]
+  const prompts = [...before, ...after]
+  let i = 0
+  ground(on, files, {}, () => cached('claude-opus-5-5', prompts[i++] ?? 0))
+  on('session.receive', ($, e) => ({ text: e.text }) as never)
+  on('session.compact', () => ({ messages: [summary], tokensBefore: 340_000, tokensAfter: 40_000 }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.session.receive({ origin: { kind: 'peer' }, text: '<agent-message from-name="demo-55c5-mid">\n[T3 DONE] 3 errors, all from one timeout\n</agent-message>' } as never)
+  for (const _ of before) await request($, 'claude-opus-5-5')
+  // a subagent's own compaction is not main's
+  await $.session.compact({ trigger: 'auto', agentId: 'agent-1', messages: [summary] } as never)
+  await $.session.compact({ trigger: 'auto', messages: [summary] } as never)
+  for (const _ of after) await request($, 'claude-opus-5-5')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+
+  // what the lane read: 100k. With it, main would have compacted once its prompt passed 240k
+  // (240k + 100k = 340k, where it did): 7 requests (100k–220k) would have read it again,
+  // 7 × 100k × $0.20/M; none after the compaction
+  expect(text).toContain(
+    [
+      "main's context",
+      '  the lanes read 100k tokens for a task that main never took in. Had main read it itself, each of its later',
+      '  requests would have read it again, until its context, that much fuller, filled and started over: ≈$0.14 on opus-5-5',
+      '  (T3 100k × 7 requests)',
+    ].join('\n'),
+  )
+  expect(text).not.toContain('That part is not in the table')
+})
+
+test("main's carry record outlives a plugin reload, and a /clear closes it", async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': JSON.stringify({ [today]: { calls: 5, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 1, onMain: 2 } }),
+    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({
+      T3: { lane: 'mid', goal: 'survey the logs', started: 0, ended: 0, verdict: 'DONE', calls: 5, cost: 1, onMain: 2, firstPrompt: 40_000, lastPrompt: 140_000 },
+    }),
+  }
+  // main at 300k, 340k, a reload, 450k, a /clear, 30k
+  const prompts = [300, 340, 450, 30]
+  let i = 0
+  ground(on, files, {}, () => cached('claude-opus-5-5', prompts[i++] ?? 0))
+  on('session.receive', ($, e) => ({ text: e.text }) as never)
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }) as never)
+  const start = () => $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await start()
+  await $.session.receive({ origin: { kind: 'peer' }, text: '<agent-message from-name="demo-55c5-mid">\n[T3 DONE] done\n</agent-message>' } as never)
+  await request($, 'claude-opus-5-5')
+  await request($, 'claude-opus-5-5')
+  await start()
+  await request($, 'claude-opus-5-5')
+  await $.session.end({ reason: 'clear', sessionId: 'session-1' } as never)
+  await request($, 'claude-opus-5-5')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+
+  // 100k read. Main never compacted, so its context fills, at the latest, where it reached (450k):
+  // the requests at 300k and 340k would have carried it, not the one at 450k, nor any after the /clear
+  expect(text).toContain('  (T3 100k × 2 requests)')
+  expect(JSON.parse(files['C:/work/demo/.claude/lanes/state/main.carry.json'] ?? '{}')['session-1'].later.T3).toEqual({ read: 100, requests: 2 })
+})
+
+test('main counts its own lookups, commands and edits, and past 40k tokens read since its last hand-off its next result carries a note', async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  // 50,000 characters of output each: about 17k tokens; grep is read-only, python isn't
+  on('tool.call', { tool: 'Bash' }, ($, e) => ({ result: { stdout: '' }, text: 'x'.repeat(50_000), ...((e as { command?: string }).command?.startsWith('grep') ? { isReadOnly: true } : {}) }) as never)
+  on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited', text: 'ok' }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const bash = (command: string) => $.tool.call({ tool: 'Bash', command } as never) as Promise<{ context?: string[] }>
+  const first = await bash('grep -rn TODO src')
+  const second = await bash('python check.py')
+  const third = await bash('grep -rn FIXME src')
+  const fourth = await bash('grep -rn XXX src')
+  await $.tool.call({ tool: 'Edit', file_path: 'C:/work/demo/a.py', old_string: 'a', new_string: 'b' } as never)
+
+  expect([first.context, second.context, fourth.context]).toEqual([undefined, undefined, undefined])
+  expect(third.context?.[0]).toContain('since your last hand-off you have read about 50k tokens of lookups, pages and command output yourself')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+  expect(text).toContain('what main did itself\n  3 lookups and 1 other command, whose output (≈67k tokens) it read and carried; 1 edit; 0 hand-offs to the lanes.')
+})
+
+test("main's tool results pass through as they were: an error untouched, a subagent's call uncounted, a hand-off resets the count", async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  const failed = { isError: true, result: 'exit 1', text: 'x'.repeat(50_000) }
+  on('tool.call', { tool: 'Bash' }, ($, e) => ((e as { command?: string }).command === 'make' ? failed : { result: { stdout: '' }, text: 'x'.repeat(50_000), isReadOnly: true }) as never)
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const bash = (command: string, agentId?: string) => $.tool.call({ tool: 'Bash', command, ...(agentId === undefined ? {} : { agentId }) } as never) as Promise<{ context?: string[] }>
+
+  expect(await bash('make')).toEqual(failed as never)
+  await bash('grep -rn a src', 'agent-1')
+  await bash('grep -rn b src')
+  // a task handed over by message, to the lane's address: a hand-off all the same
+  await $.tool.call({ tool: 'SendMessage', to: 'uds:/tmp/lane.sock', message: '[T5] check the build' } as never)
+  const after = await bash('grep -rn c src')
+  expect(after.context).toBeUndefined()
+
+  await request($, 'claude-opus-5-5')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+  expect(text).toContain('  2 lookups and 1 other command, whose output (≈50k tokens) it read and carried; 1 hand-off to the lanes.')
 })

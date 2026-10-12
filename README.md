@@ -34,6 +34,7 @@
 - 레인의 답장은 4줄 이내예요. 상세 보고는 `.claude/lanes/out/T<번호>.md`에 남습니다.
 - 일하는 중인 레인에 일을 더 넘기면 대기열에 들어갔다가, 앞 작업이 끝나는 대로 넘어갑니다.
 - 레인이 찾아 둔 위치·목록은 `.claude/lanes/notes/`에 쌓여서 같은 검색을 두 번 하지 않아요.
+- 메인이 레인에 마지막으로 넘긴 뒤로 조회·명령 출력을 4만 토큰 넘게 직접 읽으면, 다음 도구 결과 뒤에 "이런 일은 레인에 넘길 수 있다"는 짧은 메모가 메인에게만 붙어요(화면에는 안 보여요). 고칠 코드를 읽는 건 메인 몫이라 그대로 둬요.
 - 2순위 모델도 모두 5.x예요. **레인 모델로 Sonnet 4·Haiku 4는 쓰지 않아요**: 설정에 적어도 기본값으로 바뀌고, 쓸 수 있는 5.x가 없으면 옛 모델로 내려가는 대신 오류를 냅니다.
 
 ## 누구나, 어느 단계에서나
@@ -108,22 +109,23 @@ lanes는 혼자 쓸 때보다 **다른 절약 도구와 겹쳐 쓸 때** 효과�
 
 - **레인 몫만 보면 57%를 아꼈어요.** mid(Sonnet)는 $52.30 → $26.15로 절반, low(Haiku)는 $9.81 → $0.52로 95% 줄었습니다.
 - **구독(Pro·Max)이라면** 요금은 그대로지만, 사용 한도도 대체로 모델 단가대로 깎여요. 같은 한도로 약 **1.5배** 일하는 셈입니다.
-- **실제로는 더 아껴요.** 레인이 읽은 스크린샷·로그·검색 결과(이 세션에서 1억 토큰 남짓)가 메인 대화에 쌓이지 않아서, 메인의 이후 모든 턴이 가벼워집니다. 이 몫은 표에 넣지 않았어요.
+- **실제로는 더 아껴요.** 레인이 읽은 스크린샷·로그·검색 결과가 메인 대화에 쌓이지 않아서, 메인의 이후 요청이 그걸 다시 읽지 않아요. 이 세션에서는 그 몫이 **약 $6.13**으로 추정돼요. 추정이라 표에는 넣지 않았고, 0.3.7부터 `/lane usage`가 따로 보여 줘요.
 - **얻는 것은 비용만이 아니에요.** 메인 문맥이 가벼워 긴 작업에서도 덜 흐려지고, 검증·조사가 메인 작업과 동시에 돌아가며, 작업마다 결과와 비용이 장부에 남아요.
 - **계산 방법:** 세션 기록에 남은 요청 하나하나의 토큰을 모델별 [API 정가](https://platform.claude.com/docs/en/about-claude/pricing)로 계산했습니다 (캐시 쓰기는 1시간 단가). 1주·1달·1년은 이 세션을 하루치로 잡고 곱한 값이에요.
 
-### 세 프로젝트를 재 보니
+### 네 프로젝트를 재 보니
 
-<p align="center"><img src="docs/projects.svg" width="880" alt="세 프로젝트 실측: 전부 Opus였다면 153.14달러, lanes로 106.69달러, 46.45달러(30%) 절약"></p>
+<p align="center"><img src="docs/projects.svg" width="880" alt="네 프로젝트 실측: 전부 Opus였다면 202.06달러, lanes로 153.74달러, 48.32달러(24%) 절약"></p>
 
-| | 프로젝트 1 · 웹 게임 | 프로젝트 2 · lanes 플러그인 | 프로젝트 3 · 사내 업무 기획 (Bedrock) | 합계 |
-|---|---:|---:|---:|---:|
-| 세션 | 4.7시간 · 레인 작업 29건 | 3.4시간 · 레인 작업 7건 | 0.9시간 · 레인 작업 3건 | 9.0시간 |
-| 전부 Opus였다면 | $106.13 | $39.51 | $7.50 | $153.14 |
-| lanes로 | $70.64 | $30.89 | $5.16 | $106.69 |
-| **아낀 돈** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (31%)** | **−$46.45 (30%)** |
+| | 프로젝트 1 · 웹 게임 | 프로젝트 2 · lanes 플러그인 | 프로젝트 3 · 사내 업무 기획 (Bedrock) | 프로젝트 4 · 파이썬 웹서비스 | 합계 |
+|---|---:|---:|---:|---:|---:|
+| 세션 | 4.7시간 · 레인 작업 29건 | 3.4시간 · 레인 작업 7건 | 0.9시간 · 레인 작업 3건 | 5.1시간 · 레인 작업 2건 | 14.1시간 |
+| 전부 Opus였다면 | $106.13 | $39.51 | $6.92 | $49.50 | $202.06 |
+| lanes로 | $70.64 | $30.89 | $4.58 | $47.63 | $153.74 |
+| **아낀 돈** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (34%)** | **−$1.87 (4%)** | **−$48.32 (24%)** |
+| main 문맥에서 아낀 몫 (추정) | ≈$6.13 | ≈$5.41 | 다시 재는 중 | ≈$2.39 | |
 
-프로젝트 2는 이 저장소를 만든 세션이에요. 레인이 리뷰에서 버그 2개, 보안 검토에서 고칠 문제 10개를 찾았고, 고친 뒤 다시 검토해 남은 틈까지 막았어요. 프로젝트 3은 회사 PC에서 사내 게이트웨이를 거쳐 Amazon Bedrock으로 기획서를 쓴 세션이에요. low 레인이 웹 조사를 Opus 값의 3%로 끝내서 레인 몫은 63%를 아꼈어요. 시간대별 그림, 같은 일을 세 모델에게 시킨 실험(Sonnet은 Opus 비용의 38%로 같은 정답률, Haiku는 3%), 계산 근거와 직접 재는 스크립트는 **[docs/dollar-savings.md](docs/dollar-savings.md)** 에 있어요.
+프로젝트 2는 이 저장소를 만든 세션이에요. 레인이 리뷰에서 버그 2개, 보안 검토에서 고칠 문제 10개를 찾았고, 고친 뒤 다시 검토해 남은 틈까지 막았어요. 프로젝트 3은 회사 PC에서 사내 게이트웨이를 거쳐 Amazon Bedrock으로 기획서를 쓴 세션이에요. low 레인이 웹 조사를 Opus 값의 3%로 끝내서 레인 몫은 63%를 아꼈어요. 프로젝트 4는 메인이 거의 다 직접 한 세션이에요(레인 작업 2건). 그래서 4%만 아꼈고, 이걸 보고 0.3.7에서 메인이 직접 많이 읽으면 레인에 넘기라고 알려 주게 했어요. 마지막 줄은 레인이 읽은 것을 메인이 직접 읽었다면 메인의 이후 요청이 다시 읽었을 값으로, 추정이라 아낀 돈에는 넣지 않았어요. 시간대별 그림, 같은 일을 세 모델에게 시킨 실험(Sonnet은 Opus 비용의 38%로 같은 정답률, Haiku는 3%), 계산 근거와 직접 재는 스크립트는 **[docs/dollar-savings.md](docs/dollar-savings.md)** 에 있어요.
 
 내 프로젝트의 숫자는 `/lane usage`로 바로 볼 수 있어요:
 
@@ -136,17 +138,26 @@ lane spend today (2026-10-11), at API list prices
   all                   1382 calls    $70.61   on opus-5-5 $106.05  saved $35.44 (33%)
 ```
 
-표 아래에는 **어디서, 어떻게 아꼈는지**가 붙어요 (작업마다 장부가 있어서 가능해요):
+표 아래에는 **어디서, 어떻게 아꼈는지**, 그리고 **메인이 직접 한 일**이 붙어요 (작업마다 장부가 있어서 가능해요). 프로젝트 4 기록으로 만든 예시예요:
 
 ```
 where it came from, by task (most saved first)
-  T1    mid  PARTIAL   $1.56 instead of   $3.11  saved  $1.55  Review the uncommitted changes under lanes/
-  T2    low  DONE      $0.02 instead of   $0.78  saved  $0.76  Inventory, no edits: in README.md, docs/*.svg
+  T1    mid  DONE      $1.11 instead of   $2.22  saved  $1.11 (50%)  Find the API keys and sign-up steps it needs
+  T2    mid  PARTIAL   $0.77 instead of   $1.53  saved  $0.77 (50%)  Code review only (do NOT edit project files)
 how
   the same work on cheaper models: per token, sonnet-5-5 costs 1/2 of opus-5-5, haiku-5-5 costs 1/40–1/20 of opus-5-5
-  and main's context stays light: the lanes took in 244k tokens (their prompts, and the files,
-  logs and results they read) that main never read, nor carried through its later turns. That part is not in the table.
+main's context
+  the lanes read 179k tokens for 2 tasks that main never took in. Had main read it itself, each of its later
+  requests would have read it again, until its context, that much fuller, filled and started over: ≈$2.39 on opus-5-5
+  (T1 106k × 72 requests, T2 73k × 59)
+  with that, the lanes saved ≈$4.26 of ≈$51.89 (8%)
+what main did itself
+  134 lookups and 196 other commands, whose output (≈161k tokens) it read and carried; 84 browser steps; 68 edits; 2 hand-offs to the lanes.
+  Lookups, logs and runs are lane work: what main reads, each later request of its own reads again.
 ```
+
+- **main's context:** 레인이 읽은 양만큼 메인 대화가 컸다면, 메인의 다음 요청들이 그걸 다시 읽었을 값이에요(Opus 캐시 읽기 단가). 그만큼 대화가 컸다면 자동 압축이 더 일찍 왔을 테니, 그 뒤 요청은 세지 않아요. 추정이라 `≈`를 붙여요.
+- **what main did itself:** 메인이 직접 한 조회(읽기 전용 명령 포함)·명령·브라우저 조작·수정 횟수와, 조회·명령 출력으로 메인 대화에 들어간 양이에요. 레인에 넘길 수 있었던 일이 얼마나 되는지 보여 줘요.
 
 ## 설치
 
@@ -191,7 +202,7 @@ Claude Code가 Amazon Bedrock, Google Vertex AI, Microsoft Foundry로 설정돼 
 /lane <하고 싶은 일>          메인이 나눠서 끝까지 진행
 /lane status                  레인 상태 · 이어 물을 수 있는 작업 · 최근 보고서 · 오늘 레인 비용
 /lane tasks                   작업 장부: 결과 · 걸린 시간 · 작업마다 든 비용
-/lane usage [all]             오늘(all: 기록 전체) 쓴 금액과 Opus 대비 절약액
+/lane usage [all]             오늘(all: 기록 전체) 쓴 금액, Opus 대비 절약액, 메인이 직접 한 일
 /lane mid <할 일>             mid 레인에 바로 넘기기 (low도 같음)
 /lane start | stop [mid|low]  미리 켜기 · 닫기
 /lane help                    명령 목록

@@ -64,6 +64,9 @@ type TaskEntry = {
   calls: number
   cost: number
   onMain: number
+  /** the lane's prompt at the task's first and latest request, in tokens: it grew by what the lane read for the task */
+  firstPrompt?: number
+  lastPrompt?: number
 }
 /** one lane's tasks in this project by id ("T7"), written by that lane alone */
 type Ledger = Record<string, TaskEntry>
@@ -73,13 +76,30 @@ type Peer = { pid: number; name: string; status?: string; sessionId?: string; me
 type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens?: number }
 
 type Role = Tier | 'main'
-type Spend = { calls: number; unpriced: number; repriced?: number; repricedCost?: number; input: number; cacheWrite: number; cacheRead: number; output: number; cost: number; onMain: number }
+/** what a main session's own tool call was: a lookup (read-only), another command, a browser step, an edit, a hand-off to a lane */
+type Use = 'look' | 'command' | 'browse' | 'edit' | 'handoff'
+type Spend = {
+  calls: number
+  unpriced: number
+  repriced?: number
+  repricedCost?: number
+  input: number
+  cacheWrite: number
+  cacheRead: number
+  output: number
+  cost: number
+  onMain: number
+  /** main only: its own tool calls by kind, and how many characters of output its lookups and commands brought into its context */
+  uses?: Partial<Record<Use, number>>
+  took?: number
+}
 /** one role's spend in this project per local day ("2026-10-11"), in dollars at API list prices */
 type SpendLog = Record<string, Spend>
 type Rate = readonly [input: number, cacheWrite: number, cacheRead: number, output: number]
 
 const TIERS: Tier[] = ['mid', 'low']
 const ROLES: Role[] = ['main', ...TIERS]
+const USES: Use[] = ['look', 'command', 'browse', 'edit', 'handoff']
 
 // $ per million tokens at API list prices (platform.claude.com/docs/en/about-claude/pricing): input,
 // 1-hour cache write (the cache Claude Code writes), cache read, output. First match wins, so a
@@ -427,6 +447,8 @@ function addSpend(a: Spend, b: Spend): Spend {
     output: a.output + b.output,
     cost: a.cost + b.cost,
     onMain: a.onMain + b.onMain,
+    uses: Object.fromEntries(USES.map(u => [u, (a.uses?.[u] ?? 0) + (b.uses?.[u] ?? 0)])),
+    took: (a.took ?? 0) + (b.took ?? 0),
   }
 }
 
@@ -463,11 +485,20 @@ async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
   return log
 }
 
+// A main session counts from its start, but writes its log in the project only once the
+// project has used the lanes. Until then the log waits in the user's folder, so a restart or
+// a plugin reload before the first lane loses none of it; the first write here carries it over.
+async function saveSpend($: EngineInterface, role: Role) {
+  const inProject = role !== 'main' || (await $.fs.exists(`${dir}/state`))
+  await put($, inProject ? spendFile(role) : earlySpendFile(), JSON.stringify(spend, null, 1))
+}
+
 // Every model request of this session (subagents included) adds to its role's log for the day,
 // with what the same tokens would have cost on the main model.
-async function record($: EngineInterface, usage: (Usage & { model: string }) | null | undefined, asked: string) {
+async function record($: EngineInterface, usage: (Usage & { model: string }) | null | undefined, asked: string, agentId: string | undefined) {
   const role: Role | undefined = tier ?? (isMain ? 'main' : undefined)
   if (role === undefined || !usage) return
+  const prompt = usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) + usage.cache_read_input_tokens
   if (me !== undefined) {
     me.tokens.input += usage.input_tokens
     me.tokens.output += usage.output_tokens
@@ -486,18 +517,183 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   s.output += usage.output_tokens
   s.cost += cost ?? 0
   s.onMain += price(cfg.main.model, usage) ?? cost ?? 0
-  // A main session counts from its start, but writes its log in the project only once the
-  // project has used the lanes. Until then the log waits in the user's folder, so a restart or
-  // a plugin reload before the first lane loses none of it; the first write here carries it over.
-  const inProject = role !== 'main' || (await $.fs.exists(`${dir}/state`))
-  await put($, inProject ? spendFile(role) : earlySpendFile(), JSON.stringify(spend, null, 1))
+  await saveSpend($, role)
+  if (role === 'main' && agentId === undefined) await carryStep($, prompt)
   // a lane's request also counts toward the task it is on
   const entry = me === undefined ? undefined : ledger[taskId(me.task)]
   if (entry === undefined) return
   entry.calls += 1
   entry.cost += cost ?? 0
   entry.onMain += price(cfg.main.model, usage) ?? cost ?? 0
+  if (agentId === undefined) {
+    entry.firstPrompt ??= prompt
+    entry.lastPrompt = prompt
+  }
   await saveLedger($)
+}
+
+// What main would have carried, had it read a task's material itself. Every request of main's
+// reads its whole context again, so what a lane read for a task would then have been read again
+// by each main request after the answer came in, until main's context filled and started over
+// (a compaction): sooner than it did, with that much more in it. Kept per main session, in
+// thousands of tokens.
+type Stretch = {
+  at: number
+  /** main's prompt at each of its requests while a task is open in its context */
+  sizes: number[]
+  /** the prompt main's context last started over after (a compaction), 0 before any */
+  cap: number
+  /** tasks whose answer main has in its current context: where in `sizes` it came, what the lane read for it */
+  open: Record<string, { from: number; read: number }>
+  /** tasks whose stretch has ended: what the lane read, and how many main requests would have read it again */
+  later: Record<string, { read: number; requests: number }>
+}
+const carryFile = () => `${dir}/state/main.carry.json`
+let stretch: Stretch | undefined
+let sessionKey = ''
+let lastPrompt = 0
+
+// How many of main's requests from `from` on would have read `read` more before main's
+// context, that much fuller, reached `cap` and started over.
+function carried(sizes: number[], from: number, read: number, cap: number) {
+  const after = sizes.slice(from)
+  const full = after.findIndex(k => k + read >= cap)
+
+  return full === -1 ? after.length : full
+}
+
+async function loadStretch($: EngineInterface) {
+  sessionKey = await $.session.id()
+  const all = await readJson<Record<string, Stretch>>($, carryFile(), {})
+  stretch = all[sessionKey] ?? { at: 0, sizes: [], cap: 0, open: {}, later: {} }
+}
+
+async function saveStretch($: EngineInterface) {
+  if (stretch === undefined || !(await $.fs.exists(`${dir}/state`))) return
+  stretch.at = await $.clock.now()
+  const all = await readJson<Record<string, Stretch>>($, carryFile(), {})
+  // after a /clear: the session id it goes on under (the same one, if it didn't change)
+  if (sessionKey === '') {
+    sessionKey = await $.session.id()
+    stretch.later = { ...all[sessionKey]?.later, ...stretch.later }
+  }
+  all[sessionKey] = stretch
+  await put($, carryFile(), JSON.stringify(keepNewest(all, 20, s => s.at)))
+}
+
+// main's context started over: what was open in it is carried no further
+function closeStretch(cap: number) {
+  if (stretch === undefined) return
+  for (const [id, o] of Object.entries(stretch.open)) {
+    stretch.later[id] = { read: o.read, requests: (stretch.later[id]?.requests ?? 0) + carried(stretch.sizes, o.from, o.read, cap) }
+  }
+  stretch.open = {}
+  stretch.sizes = []
+}
+
+async function carryStep($: EngineInterface, prompt: number) {
+  lastPrompt = Math.round(prompt / 1000)
+  if (stretch === undefined || Object.keys(stretch.open).length === 0) return
+  stretch.sizes.push(lastPrompt)
+  await saveStretch($)
+}
+
+// Main's conversation was compacted. An automatic compaction shows where main's context fills;
+// one by hand (/compact) or by a plugin can come anywhere, and leaves the last known fill point
+// standing. Either way what main had read itself is gone from its context.
+async function carryCompacted($: EngineInterface, trigger: string, tokensBefore: number | undefined) {
+  readSince = 0
+  if (stretch === undefined) return
+  const before = tokensBefore === undefined ? lastPrompt : Math.round(tokensBefore / 1000)
+  if (trigger === 'auto') stretch.cap = before
+  closeStretch(Math.max(stretch.cap, before))
+  await saveStretch($)
+}
+
+// A /clear (or a resume of another conversation) ends this one; the process goes on under a
+// new session id with no session.start, so the next stretch is kept under that id.
+async function carryCleared($: EngineInterface) {
+  readSince = 0
+  if (stretch === undefined) return
+  closeStretch(stretch.cap || Math.max(0, ...stretch.sizes))
+  await saveStretch($)
+  stretch = { at: 0, sizes: [], cap: stretch.cap, open: {}, later: {} }
+  sessionKey = ''
+}
+
+// What one of main's own tool calls was (see Use). A Bash or PowerShell command the tool itself
+// held read-only (ls, grep, git log, ...) is a lookup, as are reads and searches. A message
+// carrying a task id ("[T7] ...") hands a lane work, whether it names the lane or its address.
+function useOf(tool: string, message: unknown, isReadOnly: boolean): Use | undefined {
+  if (/^mcp__.*(?:chrome|playwright|browser|puppeteer)/i.test(tool)) return 'browse'
+  if (tool === 'SendMessage') return typeof message === 'string' && isTask(message) ? 'handoff' : undefined
+  if (/^(?:Write|Edit|MultiEdit|NotebookEdit)$/.test(tool)) return 'edit'
+  if (isReadOnly || /^(?:Read|Grep|Glob|WebFetch|WebSearch)$/.test(tool)) return 'look'
+  if (tool === 'Bash' || tool === 'PowerShell') return 'command'
+
+  return undefined
+}
+
+// What main reads of its lookups, browser pages and commands since its last hand-off (or its
+// last compaction), in characters. Past NUDGE_AT tokens of it, the next one's result carries a
+// note that the lanes could take that.
+const NUDGE_AT = 40_000
+// a rough count: code and English run near 4 characters a token, Korean and the like fewer
+const CHARS_PER_TOKEN = 3
+let readSince = 0
+
+const nudge = (k: number) =>
+  [
+    `lanes: since your last hand-off you have read about ${k}k tokens of lookups, pages and command output yourself, and each later request of yours reads them again.`,
+    'Reading the code you are about to change is yours. Searching and surveying, logs, long outputs and test runs can go to a lane with mcp__lanes__send',
+    '(low: searches and runs, mid: checks and reviews), which reads them and sends back only what you need.',
+  ].join(' ')
+
+// One tool call of main's own (not a subagent's) counts in today's log, which the next model
+// request writes out; returns the note for main, if one is due.
+async function noteUse($: EngineInterface, use: Use, chars: number) {
+  if (!isMain || linked !== '') return undefined
+  const s = (spend[dayOf(await $.clock.now())] ??= noSpend())
+  s.uses = { ...s.uses, [use]: (s.uses?.[use] ?? 0) + 1 }
+  s.took = (s.took ?? 0) + chars
+  readSince = use === 'handoff' ? 0 : readSince + chars
+  if (readSince / CHARS_PER_TOKEN < NUDGE_AT) return undefined
+  const k = Math.round(readSince / CHARS_PER_TOKEN / 1000)
+  readSince = 0
+
+  return nudge(k)
+}
+
+// Main has a task's answer: from here on its requests count toward what the task's reading would have cost it.
+async function carryOpen($: EngineInterface, answered: [string, TaskEntry | undefined][]) {
+  if (stretch === undefined) return
+  let changed = false
+  for (const [id, t] of answered) {
+    if (t === undefined || id in stretch.open || id in stretch.later) continue
+    const read = Math.round(Math.max(0, (t.lastPrompt ?? 0) - (t.firstPrompt ?? 0)) / 1000)
+    if (read === 0) continue
+    stretch.open[id] = { from: stretch.sizes.length, read }
+    changed = true
+  }
+  if (changed) await saveStretch($)
+}
+
+// Each task's reading, and how many main requests would have read it again, over every main session here.
+async function carryOf($: EngineInterface) {
+  const all = await readJson<Record<string, Stretch>>($, carryFile(), {})
+  if (stretch !== undefined && sessionKey !== '') all[sessionKey] = stretch
+  const caps = Object.values(all).map(s => s.cap)
+  const out = new Map<string, { read: number; requests: number }>()
+  const add = (id: string, read: number, requests: number) =>
+    out.set(id, { read: Math.max(read, out.get(id)?.read ?? 0), requests: (out.get(id)?.requests ?? 0) + requests })
+  for (const s of Object.values(all)) {
+    // a context that hasn't started over yet would have, where the last one did, or else where it is now at the latest
+    const cap = s.cap || Math.max(0, ...caps) || Math.max(0, ...s.sizes)
+    for (const [id, l] of Object.entries(s.later)) add(id, l.read, l.requests)
+    for (const [id, o] of Object.entries(s.open)) add(id, o.read, carried(s.sizes, o.from, o.read, cap))
+  }
+
+  return out
 }
 
 type Task = [id: string, t: TaskEntry, isEstimate: boolean]
@@ -560,9 +756,11 @@ function cheaper(model: string, vs: string) {
   return lo === hi ? `1/${lo}` : `1/${hi}–1/${lo}`
 }
 
+const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`)
+
 // The part of "/lane usage" that says where the lanes' saving came from: each task's
 // share, the price gap that made it, and what the lanes read so main didn't have to.
-async function savings($: EngineInterface, lanes: Spend, day: string | undefined) {
+async function savings($: EngineInterface, lanes: Spend, total: Spend, day: string | undefined) {
   const $$ = dollars
   const short = modelLabel
   const tasks = (await laneTasks($))
@@ -572,7 +770,25 @@ async function savings($: EngineInterface, lanes: Spend, day: string | undefined
   const inTasks = tasks.reduce((n, [, t]) => n + t.cost, 0)
   const outside = lanes.cost - inTasks
   const gaps = TIERS.map(t => [t, cheaper(cfg[t].model, cfg.main.model)] as const).filter(([, g]) => g !== undefined)
-  const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`)
+  // what each task's reading would have cost main to carry (see Stretch), at main's cache-read price
+  const carry = await carryOf($)
+  const readRate = PRICES.find(([re]) => re.test(cfg.main.model))?.[1][2] ?? 0
+  const carriedBy = tasks
+    .flatMap(([id]) => {
+      const c = carry.get(id)
+
+      return c === undefined || c.requests === 0 ? [] : [{ id, ...c, cost: (c.read * 1000 * c.requests * readRate) / 1e6 }]
+    })
+    .sort((a, b) => b.cost - a.cost)
+  const extra = carriedBy.reduce((n, c) => n + c.cost, 0)
+  const ofAll = total.onMain + extra
+  const context =
+    extra < 0.005
+      ? [
+          `  and main's context stays light: the lanes took in ${k(lanes.input + lanes.cacheWrite)} tokens (their prompts, and the files,`,
+          '  logs and results they read) that main never read, nor carried through its later turns. That part is not in the table.',
+        ]
+      : []
 
   return [
     ...(shown.length === 0
@@ -589,9 +805,36 @@ async function savings($: EngineInterface, lanes: Spend, day: string | undefined
     ...(gaps.length > 0
       ? [`  the same work on cheaper models: per token, ${gaps.map(([t, g]) => `${short(cfg[t].model)} costs ${g} of ${short(cfg.main.model)}`).join(', ')}`]
       : []),
-    `  and main's context stays light: the lanes took in ${k(lanes.input + lanes.cacheWrite)} tokens (their prompts, and the files,`,
-    '  logs and results they read) that main never read, nor carried through its later turns. That part is not in the table.',
+    ...context,
+    ...(extra < 0.005
+      ? []
+      : [
+          "main's context",
+          `  the lanes read ${k(carriedBy.reduce((n, c) => n + c.read * 1000, 0))} tokens for ${carriedBy.length === 1 ? 'a task' : `${carriedBy.length} tasks`} that main never took in. Had main read it itself, each of its later`,
+          `  requests would have read it again, until its context, that much fuller, filled and started over: ${$$(extra, true)} on ${short(cfg.main.model)}`,
+          `  (${carriedBy.slice(0, 3).map((c, i) => `${c.id} ${k(c.read * 1000)} × ${c.requests}${i === 0 ? ` request${c.requests === 1 ? '' : 's'}` : ''}`).join(', ')}${carriedBy.length > 3 ? ', …' : ''})`,
+          `  with that, the lanes saved ${$$(total.onMain - total.cost + extra, true)} of ${$$(ofAll, true)} (${Math.round(((total.onMain - total.cost + extra) / ofAll) * 100)}%)`,
+        ]),
   ]
+}
+
+// The part of "/lane usage" that says what main did itself: the kind of work the lanes could
+// take, and how much its lookups and commands brought into its context.
+function ownWork(main: Spend) {
+  const u = main.uses ?? {}
+  const n = (use: Use) => u[use] ?? 0
+  if (USES.every(use => n(use) === 0)) return []
+  const many = (use: Use, word: string) => `${n(use)} ${word}${n(use) === 1 ? '' : 's'}`
+  const reads = [many('look', 'lookup'), many('command', 'other command'), ...(n('browse') > 0 ? [many('browse', 'browser step')] : [])]
+  const parts = [
+    n('look') + n('command') + n('browse') > 0
+      ? `${reads.slice(0, -1).join(', ')} and ${reads.at(-1)}, whose output (≈${k((main.took ?? 0) / CHARS_PER_TOKEN)} tokens) it read and carried`
+      : '',
+    n('edit') > 0 ? many('edit', 'edit') : '',
+    `${many('handoff', 'hand-off')} to the lanes`,
+  ].filter(Boolean)
+
+  return ['what main did itself', `  ${parts.join('; ')}.`, '  Lookups, logs and runs are lane work: what main reads, each later request of its own reads again.']
 }
 
 async function spendReport($: EngineInterface, all: boolean) {
@@ -627,7 +870,8 @@ async function spendReport($: EngineInterface, all: boolean) {
     ...TIERS.map(t => row(t, short(t), by.get(t) ?? noSpend(), true)),
     row('lanes', '', lanes, true),
     row('all', '', total, true),
-    ...(lanes.calls > 0 ? await savings($, lanes, all ? undefined : today) : []),
+    ...(lanes.calls > 0 ? await savings($, lanes, total, all ? undefined : today) : []),
+    ...ownWork(main),
     `Every model request of the main and lane sessions here, subagents included, priced per request with 1-hour cache writes`,
     `(platform.claude.com/docs/en/about-claude/pricing). A plan isn't billed per token, but its usage limits weigh the models much the same way.${unpriced}`,
   ].join('\n')
@@ -805,6 +1049,7 @@ async function loadMainContext($: EngineInterface) {
     .sort(([, a], [, b]) => (a.ended ?? 0) - (b.ended ?? 0))
   inbox = unseen.map(([id, t]) => `- ${clean(t.reply ?? '').replace(/\s+/g, ' ').slice(0, REPLY_MAX)} (${t.lane}, ${ago(now - (t.ended ?? now))} ago) → .claude/lanes/out/${id}.md`).join('\n')
   await markSeen($, unseen.map(([id]) => id))
+  await carryOpen($, unseen)
 }
 
 // The first link (or junction) under the project's .claude/lanes, or ''.
@@ -1104,6 +1349,7 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
   const id = await nextTaskId($)
   const from = await whoAmI($)
   await noteIssued($, `[${id}]`)
+  await noteUse($, 'handoff', 0)
   // the address, not the name: a session beside main can share main's name
   const replyTo = from === '' ? '' : `\nreply to: ${from}${mainAddress === '' ? '' : ` at ${mainAddress}`}`
   const body = `[${id}] ${task}\nout: .claude/lanes/out/${id}.md${replyTo}`
@@ -1318,6 +1564,7 @@ async function startMain($: EngineInterface) {
     description: 'Close a lane session now (they also close themselves when idle).',
     inputSchema: { type: 'object', properties: { lane: { ...lane, enum: ['mid', 'low', 'all'] } }, required: ['lane'] },
   })
+  await loadStretch($)
   await loadMainContext($)
   await refresh($)
   $.clock.every(POLL_MS, () => void poll($))
@@ -1401,7 +1648,12 @@ export const register: Register = (on, options) => {
     const first = bodyOf(e.text)
     // A lane's final reply reached a main session: no later main session needs it handed over.
     const reply = first.match(VERDICT)
-    if (reply !== null) await markSeen($, [reply[1] ?? ''])
+    if (reply !== null) {
+      const id = reply[1] ?? ''
+      await markSeen($, [id])
+      const lane = TIERS.find(t => laneName(t) === from)
+      if (lane !== undefined) await carryOpen($, [[id, (await readJson<Ledger>($, ledgerFile(lane), {}))[id]]])
+    }
     // A lane's "[progress] ..." ping goes to the status line instead of waking the main model.
     const ping = first.match(/^\[progress\]\s*(.+)$/)
     if (ping === null) return next(e)
@@ -1419,7 +1671,7 @@ export const register: Register = (on, options) => {
   on('turn.step', async function* ($, e, next) {
     const effort = stepEffort(e.model, e.effort, e.agentId)
     const done = yield* next(effort === undefined ? e : { ...e, effort })
-    await record($, done.usage, e.model)
+    await record($, done.usage, e.model, e.agentId)
 
     return done
   })
@@ -1432,8 +1684,28 @@ export const register: Register = (on, options) => {
 
   on('session.end', async ($, e, next) => {
     await markOff($)
+    if (isMain) {
+      // what main's tool calls added since its last model request
+      await saveSpend($, 'main')
+      if (e.reason === 'clear' || e.reason === 'resume') await carryCleared($)
+    }
 
     return next(e)
+  })
+
+  // Main's own conversation compacted (not a subagent's, and not a summary computed ahead of time)
+  on('session.compact', async ($, e, next) => {
+    const done = await next(e)
+    const compacted = done as unknown as { skip?: string; tokensBefore?: number } | undefined
+    if (isMain && e.agentId === undefined && e.trigger !== 'precompute' && compacted !== undefined && compacted.skip === undefined) {
+      try {
+        await carryCompacted($, e.trigger, compacted.tokensBefore)
+      } catch {
+        // the estimate misses one stretch; the compaction stands
+      }
+    }
+
+    return done
   })
 
   on('tool.call', { tool: 'mcp__lanes__send' }, async ($, e) => {
@@ -1472,6 +1744,24 @@ export const register: Register = (on, options) => {
   }
 
   on('tool.call', { tool: 'mcp__lanes__status' }, async $ => ({ result: await report($) })).catch(failed)
+
+  // Main's own tool calls: what kind each was, and what its lookups and commands brought into
+  // its context (see noteUse). Only looks on: a failure here leaves the call's result as it was.
+  on('tool.call', async ($, e, next) => {
+    const done = await next(e)
+    const call = e as unknown as { tool: string; agentId?: string; message?: unknown }
+    const result = done as unknown as { deny?: string; text?: unknown; isReadOnly?: boolean; context?: readonly string[] } | undefined
+    if (!isMain || call.agentId !== undefined || result?.deny !== undefined || call.tool === 'mcp__lanes__send') return done
+    try {
+      const use = useOf(call.tool, call.message, result?.isReadOnly === true)
+      if (use === undefined) return done
+      const note = await noteUse($, use, use === 'look' || use === 'command' || use === 'browse' ? String(result?.text ?? '').length : 0)
+
+      return note === undefined ? done : ({ ...done, context: [...(result?.context ?? []), note] } as typeof done)
+    } catch {
+      return done
+    }
+  })
 
   on('tool.call', { tool: 'mcp__lanes__stop' }, async ($, e) => {
     const which = (e as unknown as { lane?: string }).lane
