@@ -29,6 +29,7 @@ type Config = {
   launch: 'window' | 'background'
   permissionMode: PermissionMode
   idleMinutes: number
+  nudgeTokens: number
   style: Style
 }
 
@@ -144,6 +145,7 @@ let cfg: Config = {
   launch: 'window',
   permissionMode: 'auto',
   idleMinutes: 20,
+  nudgeTokens: 20_000,
   style: 'auto',
 }
 let project = ''
@@ -207,6 +209,7 @@ function configure(options: Readonly<Record<string, unknown>>) {
     launch: options.launch === 'background' ? 'background' : 'window',
     permissionMode: MODES.includes(options.permission_mode as PermissionMode) ? (options.permission_mode as PermissionMode) : cfg.permissionMode,
     idleMinutes: typeof options.idle_minutes === 'number' ? Math.max(0, options.idle_minutes) : cfg.idleMinutes,
+    nudgeTokens: typeof options.nudge_tokens === 'number' ? Math.max(0, options.nudge_tokens) : cfg.nudgeTokens,
     style: STYLES.includes(options.work_style as Style) ? (options.work_style as Style) : cfg.style,
   }
 }
@@ -635,9 +638,8 @@ function useOf(tool: string, message: unknown, isReadOnly: boolean): Use | undef
 }
 
 // What main reads of its lookups, browser pages and commands since its last hand-off (or its
-// last compaction), in characters. Past NUDGE_AT tokens of it, the next one's result carries a
-// note that the lanes could take that.
-const NUDGE_AT = 40_000
+// last compaction), in characters. Past cfg.nudgeTokens tokens of it (0: never), the next one's
+// result carries a note that the lanes could take that.
 // a rough count: code and English run near 4 characters a token, Korean and the like fewer
 const CHARS_PER_TOKEN = 3
 let readSince = 0
@@ -657,7 +659,7 @@ async function noteUse($: EngineInterface, use: Use, chars: number) {
   s.uses = { ...s.uses, [use]: (s.uses?.[use] ?? 0) + 1 }
   s.took = (s.took ?? 0) + chars
   readSince = use === 'handoff' ? 0 : readSince + chars
-  if (readSince / CHARS_PER_TOKEN < NUDGE_AT) return undefined
+  if (cfg.nudgeTokens === 0 || readSince / CHARS_PER_TOKEN < cfg.nudgeTokens) return undefined
   const k = Math.round(readSince / CHARS_PER_TOKEN / 1000)
   readSince = 0
 
@@ -984,6 +986,7 @@ function policy() {
     `- ${laneName('low')} (${cfg.low.model}, effort ${cfg.low.effort}): searching and listing, collecting references and examples, running scripts and counting results, crawling sites, sorting notes.`,
     'You keep the main line of work (writing code and content, the decisions); the lanes take what runs beside it, at any stage: while an idea is still being shaped as much as while code is being written.',
     STYLE_POLICY[cfg.style],
+    "Decide what goes to a lane before you start a piece of work, not partway through it. A lane's: reading several files you won't change, surveying a codebase, a folder or the web, running a build or a test suite and reading its output, digging through logs, checking a change you made. Send it first and work on your part while it runs. Yours: reading the code you are about to change, and a question a file or two answers.",
     'A short one-off lookup can still go to a subagent, and any token-saving or delegating skill or plugin the person has works alongside the lanes: keep the lanes for work that runs longer, builds on earlier work, or should outlive this session.',
     'Only you edit code and content, commit, push and deploy. Hand a lane work that would otherwise fill your context: mcp__lanes__send({ lane, task }) gives it a task id and a report file and opens the lane if it is closed. The lane answers in a few lines as a message; read its full report in .claude/lanes/out/<id>.md only when the answer is not enough. Shared notes live in .claude/lanes/notes/. mcp__lanes__status shows what each lane is doing; never message a lane just to ask.',
     'A lane outlives your context: it keeps what it found after you compact, clear or restart. mcp__lanes__status lists the tasks a lane still holds in context; for more on one of them, send that lane "(follow-up to T7) <what>" instead of explaining again.',

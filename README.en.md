@@ -34,7 +34,8 @@ The lanes split the work **by what each model is good at**.
 - A lane answers in four lines at most. The full report goes to `.claude/lanes/out/T<n>.md`.
 - Work handed to a busy lane waits in its queue and goes over as soon as the task before it is done.
 - What the lanes map (where things are, lists of files) builds up in `.claude/lanes/notes/`, so nobody searches twice.
-- Once main has read over 40k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only (you don't see it), that such work can go to a lane. Reading the code it is about to change stays main's.
+- Main decides what goes to a lane **before** it starts a piece of work. Reading several files it won't change, surveying code, a folder or the web, running a build or tests and reading the output, digging through logs and checking its own change go to a lane first, and main carries on with its part. Reading the code it is about to change, and a question a file or two answers, stay main's.
+- If main still reads over 20k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only (you don't see it), that such work can go to a lane. The threshold is in `/config`.
 - The fallbacks are all 5.x too. **A lane never runs on Sonnet 4 or Haiku 4**: set in the config they give way to the default, and where no 5.x model is to be had a lane fails rather than drop to an older one.
 
 ## For everyone, at every stage
@@ -236,6 +237,7 @@ lanes  sonnet ● T3 2m +1 · haiku ○
 | How lanes open | `window` (a new window) · `background` (watch with `claude attach <name>`) |
 | Lane permission mode | `auto` · `acceptEdits` · `dontAsk` · `manual` · `bypassPermissions` |
 | Close when idle | after `20` minutes (0 keeps them open) |
+| Remind main to hand off | after `20000` tokens it read itself (0 never) |
 
 <details>
 <summary><b>More</b>: effort rules · per-project instructions · things to know · development</summary>

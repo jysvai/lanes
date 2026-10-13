@@ -1,6 +1,6 @@
 {
   "name": "lanes",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "On-demand lane sessions beside your main Claude Code session, from the first idea to release: a mid lane for side work that needs judgement (research, plans, reviews, tests), a low lane for search, scripts and crawling. Works on the Claude API, Amazon Bedrock, Vertex AI and Foundry. Status line, /lane, and tools the main model calls.",
   "author": { "name": "jysvai", "email": "yunseok1312@gmail.com", "url": "https://github.com/jysvai" },
   "homepage": "https://github.com/jysvai/lanes",
@@ -91,6 +91,12 @@
       "title": "Close an idle lane after (minutes)",
       "description": "A lane with nothing to do closes itself after this long; 0 keeps it open.",
       "default": 20
+    },
+    "nudge_tokens": {
+      "type": "number",
+      "title": "Remind main to hand off after (tokens)",
+      "description": "Once main has read this many tokens of lookups and command output itself since its last hand-off, its next tool result carries a note that a lane could take such work; 0 never reminds it.",
+      "default": 20000
     }
   }
 }

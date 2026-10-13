@@ -497,6 +497,8 @@ test('by default main fits the split to how the person works, and the lanes take
   expect(policy).toContain('researching and comparing options, drafting plans')
   expect(policy).toContain('while an idea is still being shaped')
   expect(policy).toContain('any token-saving or delegating skill or plugin the person has works alongside the lanes')
+  expect(policy).toContain('Decide what goes to a lane before you start a piece of work')
+  expect(policy).toContain("Yours: reading the code you are about to change, and a question a file or two answers.")
 })
 
 test('a work style set in /config tells main how to split the work, and goes to the lanes too', { options: { work_style: 'planner' } }, async ($, on) => {

@@ -293,11 +293,11 @@ test("main's carry record outlives a plugin reload, and a /clear closes it", asy
   expect(JSON.parse(files['C:/work/demo/.claude/lanes/state/main.carry.json'] ?? '{}')['session-1'].later.T3).toEqual({ read: 100, requests: 2 })
 })
 
-test('main counts its own lookups, commands and edits, and past 40k tokens read since its last hand-off its next result carries a note', async ($, on) => {
+test('main counts its own lookups, commands and edits, and past 20k tokens read since its last hand-off its next result carries a note', async ($, on) => {
   const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
   ground(on, files, {}, cached('claude-opus-5-5', 50))
-  // 50,000 characters of output each: about 17k tokens; grep is read-only, python isn't
-  on('tool.call', { tool: 'Bash' }, ($, e) => ({ result: { stdout: '' }, text: 'x'.repeat(50_000), ...((e as { command?: string }).command?.startsWith('grep') ? { isReadOnly: true } : {}) }) as never)
+  // 25,000 characters of output each: about 8k tokens; grep is read-only, python isn't
+  on('tool.call', { tool: 'Bash' }, ($, e) => ({ result: { stdout: '' }, text: 'x'.repeat(25_000), ...((e as { command?: string }).command?.startsWith('grep') ? { isReadOnly: true } : {}) }) as never)
   on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited', text: 'ok' }) as never)
   await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
   await request($, 'claude-opus-5-5')
@@ -309,16 +309,45 @@ test('main counts its own lookups, commands and edits, and past 40k tokens read 
   await $.tool.call({ tool: 'Edit', file_path: 'C:/work/demo/a.py', old_string: 'a', new_string: 'b' } as never)
 
   expect([first.context, second.context, fourth.context]).toEqual([undefined, undefined, undefined])
-  expect(third.context?.[0]).toContain('since your last hand-off you have read about 50k tokens of lookups, pages and command output yourself')
+  expect(third.context?.[0]).toContain('since your last hand-off you have read about 25k tokens of lookups, pages and command output yourself')
   const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
-  expect(text).toContain('what main did itself\n  3 lookups and 1 other command, whose output (≈67k tokens) it read and carried; 1 edit; 0 hand-offs to the lanes.')
+  expect(text).toContain('what main did itself\n  3 lookups and 1 other command, whose output (≈33k tokens) it read and carried; 1 edit; 0 hand-offs to the lanes.')
+})
+
+test('the reminder comes at the number of tokens set in /config', { options: { nudge_tokens: 50_000 } }, async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '' }, text: 'x'.repeat(50_000), isReadOnly: true }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const bash = (command: string) => $.tool.call({ tool: 'Bash', command } as never) as Promise<{ context?: string[] }>
+  const first = await bash('grep -rn a src')
+  const second = await bash('grep -rn b src')
+  const third = await bash('grep -rn c src')
+
+  expect([first.context, second.context]).toEqual([undefined, undefined])
+  expect(third.context?.[0]).toContain('you have read about 50k tokens')
+})
+
+test('set to 0 in /config, main is never reminded, and its own work is still counted', { options: { nudge_tokens: 0 } }, async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '' }, text: 'x'.repeat(150_000), isReadOnly: true }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const bash = (command: string) => $.tool.call({ tool: 'Bash', command } as never) as Promise<{ context?: string[] }>
+  const results = [await bash('grep -rn a src'), await bash('grep -rn b src')]
+
+  expect(results.map(r => r.context)).toEqual([undefined, undefined])
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+  expect(text).toContain('  2 lookups and 0 other commands, whose output (≈100k tokens) it read and carried')
 })
 
 test("main's tool results pass through as they were: an error untouched, a subagent's call uncounted, a hand-off resets the count", async ($, on) => {
   const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
   ground(on, files, {}, cached('claude-opus-5-5', 50))
-  const failed = { isError: true, result: 'exit 1', text: 'x'.repeat(50_000) }
-  on('tool.call', { tool: 'Bash' }, ($, e) => ((e as { command?: string }).command === 'make' ? failed : { result: { stdout: '' }, text: 'x'.repeat(50_000), isReadOnly: true }) as never)
+  const failed = { isError: true, result: 'exit 1', text: 'x'.repeat(25_000) }
+  on('tool.call', { tool: 'Bash' }, ($, e) => ((e as { command?: string }).command === 'make' ? failed : { result: { stdout: '' }, text: 'x'.repeat(25_000), isReadOnly: true }) as never)
   on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
   await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
   await request($, 'claude-opus-5-5')
@@ -334,5 +363,5 @@ test("main's tool results pass through as they were: an error untouched, a subag
 
   await request($, 'claude-opus-5-5')
   const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
-  expect(text).toContain('  2 lookups and 1 other command, whose output (≈50k tokens) it read and carried; 1 hand-off to the lanes.')
+  expect(text).toContain('  2 lookups and 1 other command, whose output (≈25k tokens) it read and carried; 1 hand-off to the lanes.')
 })
