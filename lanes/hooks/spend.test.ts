@@ -149,6 +149,22 @@ test('/lane usage adds up the main session and the lanes and says what the lanes
   expect(ran.text).toContain('  lanes                  914 calls    $26.67   on opus-5-5 $62.11  saved $35.44 (57%)')
 })
 
+test("main's own subagents on a cheaper model show their saving on main's row, apart from the lanes'", async ($, on) => {
+  const day = (cost: number, onMain: number, calls: number) =>
+    JSON.stringify({ [today]: { calls, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost, onMain } })
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/main.spend.json': day(23.87, 24.31, 323),
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': day(33.77, 67.54, 1360),
+  }
+  ground(on, files, {}, null)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text
+
+  expect(ran).toContain('  main  opus-5-5         323 calls    $23.87   on opus-5-5 $24.31  saved $0.44 (2%)')
+  expect(ran).toContain('  lanes                 1360 calls    $33.77   on opus-5-5 $67.54  saved $33.77 (50%)')
+  expect(ran).toContain('  all                   1683 calls    $57.64   on opus-5-5 $91.85  saved $34.21 (37%)')
+})
+
 test('a day logged at $0 because a gateway named every model its own way is priced from its tokens', async ($, on) => {
   const day = (s: Record<string, number>) => JSON.stringify({ [today]: { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0, onMain: 0, ...s } })
   const files: Record<string, string> = {
@@ -211,9 +227,10 @@ const summary = { role: 'user', text: 'a summary of the conversation so far', to
 // a request whose whole prompt, `k` thousand tokens, is read from the cache
 const cached = (model: string, k: number) => ({ model, input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: k * 1000, output_tokens: 0 })
 
-test('a lane notes how far its prompt grew over a task: what it read for it', async ($, on) => {
+test('a lane notes how far its prompt grew over a task, a compaction of its own midway included: what it read for it', async ($, on) => {
   const files: Record<string, string> = {}
-  const prompts = [40, 90, 150]
+  // 40k → 150k, compacted to 60k, on to 100k: it read 110k + 40k
+  const prompts = [40, 90, 150, 60, 100]
   let i = 0
   ground(on, files, { CLAUDE_LANE: 'mid' }, () => cached('claude-sonnet-5-5', prompts[i++] ?? 0))
   on('turn.start', ($, e) => e as never)
@@ -222,11 +239,13 @@ test('a lane notes how far its prompt grew over a task: what it read for it', as
   for (const _ of prompts) await request($, 'claude-sonnet-5-5')
 
   const t = JSON.parse(files['C:/work/demo/.claude/lanes/state/mid.tasks.json'] ?? '{}').T3
-  expect([t.firstPrompt, t.lastPrompt]).toEqual([40_000, 150_000])
+  expect([t.firstPrompt, t.lastPrompt, t.grown]).toEqual([40_000, 100_000, 150_000])
 })
 
 test("/lane usage puts a figure on main's lighter context: what a task's reading would have cost main to carry until its context started over", async ($, on) => {
   const files: Record<string, string> = {
+    // earlier today one of main's subagents ran on Haiku: a saving of main's own, not the lanes'
+    'C:/work/demo/.claude/lanes/state/main.spend.json': JSON.stringify({ [today]: { calls: 1, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0.01, onMain: 0.4 } }),
     'C:/work/demo/.claude/lanes/state/mid.spend.json': JSON.stringify({ [today]: { calls: 5, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 1, onMain: 2 } }),
     'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({
       T3: { lane: 'mid', goal: 'survey the logs', started: 0, ended: 0, verdict: 'DONE', calls: 5, cost: 1, onMain: 2, firstPrompt: 40_000, lastPrompt: 140_000 },
@@ -260,6 +279,9 @@ test("/lane usage puts a figure on main's lighter context: what a task's reading
       '  (T3 100k × 7 requests)',
     ].join('\n'),
   )
+  // the lanes' $1 and the $0.14 above, of the day without the lanes: main as it was ($0.49,
+  // its Haiku subagent at what it cost), the lane's work on Opus ($2) and the $0.14
+  expect(text).toContain('  with that, the lanes saved ≈$1.14 of ≈$2.63 (43%)')
   expect(text).not.toContain('That part is not in the table')
 })
 

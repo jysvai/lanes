@@ -68,7 +68,12 @@ type TaskEntry = {
   /** the lane's prompt at the task's first and latest request, in tokens: it grew by what the lane read for the task */
   firstPrompt?: number
   lastPrompt?: number
+  /** how far the lane's prompt grew over the task, request by request: a compaction mid-task shrinks it, the growth on either side still counts */
+  grown?: number
 }
+
+// What a lane read for a task, in tokens (a task logged before 0.3.9 has no `grown`)
+const readOf = (t: TaskEntry) => t.grown ?? Math.max(0, (t.lastPrompt ?? 0) - (t.firstPrompt ?? 0))
 /** one lane's tasks in this project by id ("T7"), written by that lane alone */
 type Ledger = Record<string, TaskEntry>
 
@@ -529,6 +534,7 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   entry.cost += cost ?? 0
   entry.onMain += price(cfg.main.model, usage) ?? cost ?? 0
   if (agentId === undefined) {
+    entry.grown = readOf(entry) + Math.max(0, prompt - (entry.lastPrompt ?? prompt))
     entry.firstPrompt ??= prompt
     entry.lastPrompt = prompt
   }
@@ -672,7 +678,7 @@ async function carryOpen($: EngineInterface, answered: [string, TaskEntry | unde
   let changed = false
   for (const [id, t] of answered) {
     if (t === undefined || id in stretch.open || id in stretch.later) continue
-    const read = Math.round(Math.max(0, (t.lastPrompt ?? 0) - (t.firstPrompt ?? 0)) / 1000)
+    const read = Math.round(readOf(t) / 1000)
     if (read === 0) continue
     stretch.open[id] = { from: stretch.sizes.length, read }
     changed = true
@@ -783,7 +789,8 @@ async function savings($: EngineInterface, lanes: Spend, total: Spend, day: stri
     })
     .sort((a, b) => b.cost - a.cost)
   const extra = carriedBy.reduce((n, c) => n + c.cost, 0)
-  const ofAll = total.onMain + extra
+  // the day without the lanes: main as it was (its own subagents too), the lanes' work on main's model
+  const ofAll = total.cost - lanes.cost + lanes.onMain + extra
   const context =
     extra < 0.005
       ? [
@@ -815,7 +822,7 @@ async function savings($: EngineInterface, lanes: Spend, total: Spend, day: stri
           `  the lanes read ${k(carriedBy.reduce((n, c) => n + c.read * 1000, 0))} tokens for ${carriedBy.length === 1 ? 'a task' : `${carriedBy.length} tasks`} that main never took in. Had main read it itself, each of its later`,
           `  requests would have read it again, until its context, that much fuller, filled and started over: ${$$(extra, true)} on ${short(cfg.main.model)}`,
           `  (${carriedBy.slice(0, 3).map((c, i) => `${c.id} ${k(c.read * 1000)} × ${c.requests}${i === 0 ? ` request${c.requests === 1 ? '' : 's'}` : ''}`).join(', ')}${carriedBy.length > 3 ? ', …' : ''})`,
-          `  with that, the lanes saved ${$$(total.onMain - total.cost + extra, true)} of ${$$(ofAll, true)} (${Math.round(((total.onMain - total.cost + extra) / ofAll) * 100)}%)`,
+          `  with that, the lanes saved ${$$(lanes.onMain - lanes.cost + extra, true)} of ${$$(ofAll, true)} (${Math.round(((lanes.onMain - lanes.cost + extra) / ofAll) * 100)}%)`,
         ]),
   ]
 }
@@ -868,7 +875,8 @@ async function spendReport($: EngineInterface, all: boolean) {
 
   return [
     `lane spend ${all ? `${days[0]} to ${days[days.length - 1]}` : `today (${today})`}, at API list prices`,
-    row('main', short('main'), main, false),
+    // main's own subagents on a cheaper model save too: shown on its row, not counted as the lanes'
+    row('main', short('main'), main, main.onMain - main.cost >= 0.005),
     ...TIERS.map(t => row(t, short(t), by.get(t) ?? noSpend(), true)),
     row('lanes', '', lanes, true),
     row('all', '', total, true),
