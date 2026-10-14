@@ -110,7 +110,7 @@ A real record of one web game project worked on all afternoon (4.6 hours), next 
 
 - **The lanes' own share came out 57% cheaper.** mid (Sonnet) went from $52.30 to $26.15, half; low (Haiku) from $9.81 to $0.52, 95% less.
 - **On a subscription (Pro, Max)** the bill stays the same, but usage limits are drawn down roughly by model price too: about **1.5×** the work from the same limits.
-- **It saves more than the table shows.** The screenshots, logs and search results the lanes read never piled up in main's conversation, so main's later requests didn't read them again. In this session that comes to **about $6.13**. It is an estimate, so it isn't in the table; from 0.3.7, `/lane usage` shows it on its own.
+- **It saves more than the table shows.** The screenshots, logs and search results the lanes read never piled up in main's conversation, so main's later requests didn't read them again. In this session that comes to **about $12.23**. It is an estimate, so it isn't in the table; from 0.3.7, `/lane usage` shows it on its own.
 - **You get more than a lower bill.** Main's context stays light, so it stays on track through long work; checks and research run while main keeps working; and every task's result and cost is on record.
 - **How it's counted:** every request in the session logs, its tokens priced at its model's [API list price](https://platform.claude.com/docs/en/about-claude/pricing) (cache writes at the 1-hour rate). A week, a month and a year take this session as one working day.
 
@@ -124,9 +124,9 @@ A real record of one web game project worked on all afternoon (4.6 hours), next 
 | All on Opus | $106.13 | $39.51 | $6.92 | $49.50 | $202.06 |
 | With lanes | $70.64 | $30.89 | $4.58 | $47.63 | $153.74 |
 | **Saved** | **−$35.48 (33%)** | **−$8.62 (22%)** | **−$2.34 (34%)** | **−$1.87 (4%)** | **−$48.32 (24%)** |
-| In main's context (estimate) | ≈$6.13 | ≈$5.41 | ≈$0.03 | ≈$2.39 | |
+| In main's context (estimate) | ≈$12.23 | ≈$7.77 | ≈$0.03 | ≈$2.39 | |
 
-Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. Project 3 is a planning doc written on a work computer, through the company's gateway to Amazon Bedrock; the low lane did the web research at 3% of Opus's price, and the lanes' share saved 63%. In project 4 main did nearly everything itself (2 lane tasks), so it saved only 4%; that is why 0.3.7 tells main to hand off when it reads a lot itself. The last row is what main's later requests would have read again had main read the lanes' material itself; it is an estimate, so it isn't in the saving. The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
+Project 2 is the session that built this repo. Its lanes found two bugs in a review and ten issues to fix in a security review; after the fixes it reviewed them again, and the gaps left were closed too. Project 3 is a planning doc written on a work computer, through the company's gateway to Amazon Bedrock; the low lane did the web research at 3% of Opus's price, and the lanes' share saved 63%. In project 4 main did nearly everything itself (2 lane tasks), so it saved only 4%; that is why 0.3.7 tells main to hand off when it reads a lot itself. The last row is what main's later requests would have read again had main read the lanes' material itself; it is an estimate, so it isn't in the saving. A whole day across four projects, Oct 14, saved 23% too, $197.79 → $152.73 (37% on the web game, where the lanes playtested for over eight hours; 7–13% on the other three, where main did nearly everything). The timelines, an experiment running the same tasks on three models (Sonnet answers as well as Opus at 38% of the cost, Haiku costs 3%), how it's counted and scripts to measure your own are in **[docs/dollar-savings.en.md](docs/dollar-savings.en.md)**.
 
 See your own project's numbers with `/lane usage`:
 

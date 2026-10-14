@@ -2,7 +2,7 @@
 
 # What lanes actually saves
 
-**Measured on four projects, and the same tasks run on three models**
+**Measured on four projects, on one day across four projects, and the same tasks run on three models**
 
 [한국어](dollar-savings.md) · **English** · [Back to the README](../README.en.md)
 
@@ -23,12 +23,13 @@
 | The lanes' share alone | 57% saved | 66% saved | 63% saved | 50% saved | |
 | Work the same money buys | 1.50× | 1.28× | 1.51× | 1.04× | 1.31× |
 | Tokens kept out of main's context | 109.1M | 12.0M | 1.9M | 3.8M | 126.7M |
-| Saved in main's context (estimate) | ≈$6.13 | ≈$5.41 | ≈$0.03 | ≈$2.39 | |
-| With that counted | ≈37% | ≈31% | ≈34% | ≈8% | |
+| Saved in main's context (estimate) | ≈$12.23 | ≈$7.77 | ≈$0.03 | ≈$2.39 | |
+| With that counted | ≈40% | ≈35% | ≈34% | ≈8% | |
 
 - **"All on Opus"** prices the tokens the lanes used at Opus 5.5 rates. What main spent is the same on both sides.
 - **Why the projects differ:** on the game, the lanes ran long playtests and regression runs (mid: 213 minutes). On the plugin, main spent most of the time changing the code itself and gave the lanes seven reviews and lookups. The planning session was short, so main's share was large, but the low lane did the web research at 3% of Opus's price, so the lanes' share saved 63%. On the web service, main did nearly all the work itself (2 lane tasks). **The more side work goes to the lanes, the more they save.**
 - **Saved in main's context (estimate)** is what main's later requests would have read again had main read the lanes' material itself. It is an estimate, not a measurement, so it isn't in the saving. How it's worked out is [below](#saved-in-mains-context-estimate).
+- **A whole day looks much the same.** Over Oct 14, four projects (one of them project 1's web game) went from $197.79 to $152.73, 23% saved. It's [below](#one-working-day-oct-14).
 - **On a subscription (Pro, Max)** the bill doesn't change, but usage limits are drawn down by model price too, so the same limit stretches about 1.3× further.
 
 ## Project 1 · a web game
@@ -131,20 +132,52 @@ Each lane task (the `/lane usage` ledger):
 - **0.3.7 came out of this session.** Once main has read over 40k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only, that such work can go to a lane. `/lane usage` now shows what main did itself, and what was saved in main's context (below).
 - **Time at work:** main 142 minutes, mid 11, low 0. All 11 of the lanes' minutes ran while main was working too.
 
+## One working day: Oct 14
+
+Each project above is one session. This time it's a whole day: the four projects worked on with the lanes on this PC on Oct 14, gathered from what `/lane usage` showed in each that day and checked against the session logs. One is project 1's web game (its fourth day); the other three are new. Names and paths that would identify the projects are left out.
+
+<p align="center"><img src="en/day.svg" width="880" alt="One day, Oct 14, four projects: all on Opus 197.79 dollars, with lanes 152.73 dollars, 45.05 dollars (23%) saved. Blog automation 34.14 to 31.71 dollars, 7%; a Node CLI tool 34.78 to 30.89 dollars, 11%; an OCR model 37.46 to 32.49 dollars, 13%; the web game (project 1) 91.41 to 57.64 dollars, 37%"></p>
+
+| | Blog automation | A Node CLI tool | An OCR model | The web game (project 1) | All four |
+|---|---:|---:|---:|---:|---:|
+| main (Opus 5.5) | $29.29 · 344 | $29.14 · 335 | $27.52 · 287 | $23.87 · 323 | $109.82 |
+| mid lane (Sonnet 5.5) | $2.42 · 56 | $1.59 · 38 | $4.97 · 84 | $33.77 · 1,360 | $42.75 |
+| low lane (Haiku 5.5) | — | $0.16 · 54 | — | — | $0.16 |
+| All on Opus | $34.14 | $34.78 | $37.46 | $91.41 | $197.79 |
+| With lanes | $31.71 | $30.89 | $32.49 | $57.64 | $152.73 |
+| **Saved** | **−$2.42 (7%)** | **−$3.89 (11%)** | **−$4.97 (13%)** | **−$33.77 (37%)** | **−$45.05 (23%)** |
+| Lane tasks | 3 | 4 | 4 | 8 | 19 |
+| Time at work, main / lanes | 99 / 15 min | 113 / 12 min | 87 / 29 min | 70 / 519 min | |
+| Lookups and commands main ran itself | 305 | 320 | 228 | 292 | |
+| Saved in main's context (estimate) | ≈$2.58 | ≈$5.38 | ≈$3.81 | ≈$0.00 | ≈$11.77 |
+| Together with that | ≈14% | ≈23% | ≈21% | ≈37% | ≈27% |
+
+(The figures after a cost are requests.)
+
+- **Again, the more handed off, the more saved.** On the web game, while main worked 70 minutes, the mid lane ran browser playtests for over eight hours (T81–T88, 100–300 requests a playtest). The lanes spent more than main, and 75% of the day's saving came from there. On the other three, main worked 87–113 minutes itself and the lanes 12–29, for 7–13%.
+- **A big saving can come with a big bill.** The web game saved the most and also cost the most ($57.64): it ran the same kind of playtest seven times. "Saved" is the gap to the same work on Opus; it doesn't say whether the work was needed.
+- **The low lane is the cheapest.** On the Node CLI tool, the low lane ran and summed up the full checks twice for $0.16 ($2.45 on Opus, 6%). The other three projects didn't use the low lane that day.
+- **Main still did a lot itself.** 0.3.8 (main decides what goes to a lane before it starts) was on that day, yet on the three projects other than the game main ran 228–320 lookups and commands itself, against 3–4 lane tasks.
+- **Checked:** on blog automation, the Node CLI tool and the OCR model, `/lane usage` and the session logs agree on every request count, and on cost to within 0.1%. On the web game the lane was still playtesting while this was measured, so the two couldn't be cut at exactly the same moment. The table is from when `/lane usage` was read (mid 1,360 requests, $33.77); the session logs a few minutes later had 1,372 requests and $34.00, the difference being what ran in between. The lanes' 519 minutes include those few minutes too. Main has the same request count; its cost differs by 0.6%, from how 8 subagent requests were logged. Like `/lane usage`, the day is a calendar day, so the tail of a session that ran past midnight counts toward it.
+- **Saved in main's context is counted the fixed way (0.3.9).** That day `/lane usage` still counted it the old way and showed ≈$2.60, ≈$4.27, ≈$1.83 and ≈$0.26. The table works it out again from the session logs, up to the moment `/lane usage` was run in each project. On the web game the lane read 100k–370k tokens a task; with the fill size taken from where main was compacted that day, had main read that itself, its conversation would have filled at once and been compacted, so it counts as 0 ([below](#saved-in-mains-context-estimate)).
+- **Checking the figures found a bug.** On the web game, `/lane usage`'s "all" row saved $0.44 more ($34.21) than its lanes row ($33.77). That was main's own code-review subagent (Sonnet 5.5, 8 requests): its saving didn't show on main's row and was counted as the lanes' in "the lanes saved". From 0.3.9 it shows on main's row and stays out of the lanes' saving. The table above counts main's subagents at what they cost too, as for project 2. The same day's figures also showed two gaps in the main's-context estimate, now fixed (below).
+
 ## Saved in main's context (estimate)
 
 The files, logs and search results the lanes read never pile up in main's conversation. Had main read them itself, each of its later requests would have read them again from the cache (Opus 5.5 cache reads, $0.20 per million tokens). The saving above counts only the price gap, so this part isn't in it. It is estimated here from the session logs.
 
 | | Project 1 | Project 2 | Project 3 | Project 4 |
 |---|---:|---:|---:|---:|
-| What the lanes read, summed over tasks | 802k tokens | 388k tokens | 93k tokens | 179k tokens |
-| Saved in main's context | ≈$6.13 | ≈$5.41 | ≈$0.03 | ≈$2.39 |
-| Together with the price-gap saving | ≈$41.61 of ≈$112.25 (37%) | ≈$14.03 of ≈$44.92 (31%) | ≈$2.37 of ≈$6.95 (34%) | ≈$4.26 of ≈$51.89 (8%) |
+| What the lanes read, summed over tasks | 1,982k tokens | 654k tokens | 93k tokens | 179k tokens |
+| Saved in main's context | ≈$12.23 | ≈$7.77 | ≈$0.03 | ≈$2.39 |
+| Together with the price-gap saving | ≈$47.71 of ≈$118.35 (40%) | ≈$16.39 of ≈$47.28 (35%) | ≈$2.37 of ≈$6.95 (34%) | ≈$4.26 of ≈$51.89 (8%) |
 
-- **How:** what a lane read for a task is how far its prompt grew over the task (its last request's prompt less its first's). Each main request after the lane answered is taken to read that again, at Opus's cache-read price.
-- **Counted on the low side.** A conversation that much fuller would have been compacted sooner, so requests from the one where (main's prompt + what the lane read) reaches the size main actually compacted at are left out, as are requests after a compaction. What the lane spent inside the task is already in "On Opus" and isn't counted again; cache rewrites after an expiry aren't counted either.
+- **How:** what a lane read for a task is how far its prompt grew over the task, added up request by request: if the lane was compacted midway and its prompt shrank, the growth before and after still counts. Each main request after the lane answered is taken to read that again, at Opus's cache-read price.
+- **Counted on the low side.** A conversation that much fuller would have been compacted sooner, so requests from the one where (main's prompt + what the lane read) reaches the size where main's conversation fills are left out, as are requests after a compaction. That size is where main was actually compacted on its own, or, if main later held more without being compacted, the most it held. What the lane spent inside the task is already in "On Opus" and isn't counted again; cache rewrites after an expiry aren't counted either.
+- **A very large read can count as 0.** When what a lane read is more than the room left in main's conversation, main would have been compacted as soon as it read it, so no later request is taken to read it again. What compacting more often costs (lost context, cache written again) isn't counted. The web game on Oct 14 is such a case (above).
+- **0.3.9 fixed two things.** Up to 0.3.8 what a lane read was its last request's prompt less its first's, so a task during which the lane was compacted counted as 0; and when main went on to hold more than where it had once been compacted, its conversation was still taken to fill at that size. The Oct 14 figures showed both, and the values above are worked out again the fixed way (project 1 ≈$6.13 → ≈$12.23, project 2 ≈$5.41 → ≈$7.77, project 4 unchanged). Project 3's logs are on the work computer and couldn't be measured again; it is a short session with 30 lane requests, so there is little room for change.
 - **The shorter the session, the smaller it is.** Project 3 ran 54 minutes, so few main requests came after the lanes answered, and nothing was compacted. With no compaction to go by, main's context is taken to fill at the largest size it actually reached (the most conservative choice), which leaves ≈$0.03. It grows with long sessions where the lanes read a lot early.
-- From 0.3.7, `/lane usage` works this out the same way (`main's context`).
+- From 0.3.7, `/lane usage` shows this (`main's context`); from 0.3.9 it works it out the same way as above.
 
 ## Speed and amount of work
 

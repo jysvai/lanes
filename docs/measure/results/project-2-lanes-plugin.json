@@ -182,9 +182,9 @@
    {
     "id": "T5",
     "lane": "low",
-    "read": 75256,
-    "requests": 69,
-    "cost": 1.0385328
+    "read": 136157,
+    "requests": 50,
+    "cost": 1.36157
    },
    {
     "id": "T6",
@@ -196,35 +196,30 @@
    {
     "id": "T7",
     "lane": "mid",
-    "read": 67935,
+    "read": 125857,
     "requests": 0,
     "cost": 0
    },
    {
     "id": "T8",
     "lane": "mid",
-    "read": 60768,
+    "read": 152347,
     "requests": 71,
-    "cost": 0.8629056
+    "cost": 2.1633274
    },
    {
     "id": "T9",
     "lane": "low",
-    "read": 32933,
+    "read": 87780,
     "requests": 67,
-    "cost": 0.44130220000000003
+    "cost": 1.176252
    }
   ],
-  "cost": 5.4110516,
+  "cost": 7.7694604,
   "compactions": [
    {
     "at": "2026-10-11T14:41:54.538Z",
     "pre": 467551,
-    "trigger": "auto"
-   },
-   {
-    "at": "2026-10-11T17:13:42.346Z",
-    "pre": 424889,
     "trigger": "auto"
    }
   ]

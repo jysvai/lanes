@@ -168,15 +168,16 @@ for (const f of readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.startsWi
 const seenTask = new Set()
 const taskList = tasks.sort((a, b) => a.at - b.at).filter(t => (seenTask.has(t.id) ? false : (seenTask.add(t.id), true)))
 
-// What main would have carried had it read each task's material itself, as lanes 0.3.7's
-// /lane usage works it out: the lane's prompt grew by what it read for the task (its last
-// request's prompt less its first's); each main request after the answer would have read that
-// again, until main's context, that much fuller, reached the size it compacted at and started over.
+// What main would have carried had it read each task's material itself, as lanes 0.3.9's
+// /lane usage works it out: the lane's prompt grew by what it read for the task (request by
+// request, so a compaction of the lane's mid-task loses none of it); each main request after the
+// answer would have read that again, until main's context, that much fuller, reached the size it
+// compacted at and started over.
 const promptOf = u => u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0)
 const mainSorted = [...roles.main].sort((a, b) => a.at - b.at)
 // An automatic compaction shows where main's context fills; one by hand (/compact) can come
 // anywhere, and the point an automatic one last showed still stands at it.
-const compactions = [...jsonl(mainFile)].filter(r => r.type === 'system' && r.subtype === 'compact_boundary').map(r => ({ at: Date.parse(r.timestamp), pre: r.compactMetadata?.preTokens ?? 0, trigger: r.compactMetadata?.trigger ?? 'auto' }))
+const compactions = [...jsonl(mainFile)].filter(r => r.type === 'system' && r.subtype === 'compact_boundary' && Date.parse(r.timestamp) <= end).map(r => ({ at: Date.parse(r.timestamp), pre: r.compactMetadata?.preTokens ?? 0, trigger: r.compactMetadata?.trigger ?? 'auto' }))
 let fills = 0
 for (const c of compactions) {
   if (c.trigger === 'auto') fills = c.pre
@@ -189,12 +190,14 @@ for (const t of taskList) {
   const nextAt = tasks.filter(x => taskFile.get(`${x.id}@${x.at}`) === path && x.at > t.at).map(x => x.at).sort((a, b) => a - b)[0] ?? Infinity
   const mine = laneReqs.filter(r => r.at >= t.at && r.at < nextAt && r.at <= end)
   if (mine.length === 0) continue
-  const read = Math.max(0, promptOf(mine.at(-1).usage) - promptOf(mine[0].usage))
+  let read = 0
+  for (let i = 1; i < mine.length; i++) read += Math.max(0, promptOf(mine[i].usage) - promptOf(mine[i - 1].usage))
   const answered = mine.at(-1).at
   const boundary = compactions.find(c => c.at > answered)
-  // with no compaction after it, main's context fills where the last automatic one came, or else where it got to at the latest
-  const cap = boundary?.cap ?? (fills || Math.max(...mainSorted.filter(r => r.at > answered).map(r => promptOf(r.usage)), 0))
   const after = mainSorted.filter(r => r.at > answered && (boundary === undefined || r.at < boundary.at))
+  // with no compaction after it, main's context fills where the last automatic one came, or else
+  // where it got to at the latest; and never below the most it went on to hold without starting over
+  const cap = Math.max(boundary?.cap ?? fills, ...after.map(r => promptOf(r.usage)), 0)
   const full = after.findIndex(r => promptOf(r.usage) + read >= cap)
   const later = full === -1 ? after.length : full
   carry.push({ id: t.id, lane: t.lane, read, requests: later, cost: (read * later * 0.2) / 1e6 })

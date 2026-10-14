@@ -381,9 +381,9 @@
    {
     "id": "T4",
     "lane": "low",
-    "read": 0,
-    "requests": 31,
-    "cost": 0
+    "read": 17415,
+    "requests": 23,
+    "cost": 0.080109
    },
    {
     "id": "T5",
@@ -402,16 +402,16 @@
    {
     "id": "T7",
     "lane": "mid",
-    "read": 0,
-    "requests": 191,
-    "cost": 0
+    "read": 149825,
+    "requests": 78,
+    "cost": 2.33727
    },
    {
     "id": "T10",
     "lane": "mid",
-    "read": 0,
-    "requests": 148,
-    "cost": 0
+    "read": 133551,
+    "requests": 46,
+    "cost": 1.2286692
    },
    {
     "id": "T12",
@@ -423,30 +423,30 @@
    {
     "id": "T13",
     "lane": "mid",
-    "read": 0,
-    "requests": 108,
-    "cost": 0
+    "read": 117957,
+    "requests": 17,
+    "cost": 0.40105380000000007
    },
    {
     "id": "T14",
     "lane": "mid",
-    "read": 0,
-    "requests": 100,
-    "cost": 0
+    "read": 59392,
+    "requests": 51,
+    "cost": 0.6057984000000001
    },
    {
     "id": "T16",
     "lane": "mid",
-    "read": 37793,
-    "requests": 52,
-    "cost": 0.3930472
+    "read": 118519,
+    "requests": 0,
+    "cost": 0
    },
    {
     "id": "T17",
     "lane": "mid",
-    "read": 0,
-    "requests": 76,
-    "cost": 0
+    "read": 48740,
+    "requests": 38,
+    "cost": 0.370424
    },
    {
     "id": "T19",
@@ -458,15 +458,15 @@
    {
     "id": "T20",
     "lane": "mid",
-    "read": 38220,
-    "requests": 7,
-    "cost": 0.053508
+    "read": 125805,
+    "requests": 0,
+    "cost": 0
    },
    {
     "id": "T21",
     "lane": "mid",
-    "read": 0,
-    "requests": 18,
+    "read": 86306,
+    "requests": 0,
     "cost": 0
    },
    {
@@ -479,9 +479,9 @@
    {
     "id": "T22",
     "lane": "mid",
-    "read": 14381,
-    "requests": 2,
-    "cost": 0.0057524
+    "read": 98571,
+    "requests": 0,
+    "cost": 0
    },
    {
     "id": "T24",
@@ -500,16 +500,16 @@
    {
     "id": "T25",
     "lane": "mid",
-    "read": 0,
-    "requests": 2,
+    "read": 73325,
+    "requests": 0,
     "cost": 0
    },
    {
     "id": "T27",
     "lane": "mid",
-    "read": 0,
+    "read": 12613,
     "requests": 61,
-    "cost": 0
+    "cost": 0.1538786
    },
    {
     "id": "T28",
@@ -528,30 +528,30 @@
    {
     "id": "T30",
     "lane": "mid",
-    "read": 44869,
+    "read": 124711,
     "requests": 52,
-    "cost": 0.46663760000000004
+    "cost": 1.2969944000000002
    },
    {
     "id": "T31",
     "lane": "low",
-    "read": 20822,
+    "read": 67954,
     "requests": 27,
-    "cost": 0.1124388
+    "cost": 0.36695160000000004
    },
    {
     "id": "T32",
     "lane": "mid",
-    "read": 0,
+    "read": 81573,
     "requests": 14,
-    "cost": 0
+    "cost": 0.22840440000000004
    },
    {
     "id": "T33",
     "lane": "low",
-    "read": 0,
+    "read": 19640,
     "requests": 15,
-    "cost": 0
+    "cost": 0.05892
    },
    {
     "id": "T34",
@@ -561,7 +561,7 @@
     "cost": 0
    }
   ],
-  "cost": 6.1292166,
+  "cost": 12.226306000000001,
   "compactions": [
    {
     "at": "2026-10-11T06:06:57.491Z",
@@ -571,11 +571,6 @@
    {
     "at": "2026-10-11T08:34:37.851Z",
     "pre": 467306,
-    "trigger": "auto"
-   },
-   {
-    "at": "2026-10-11T16:36:10.930Z",
-    "pre": 467561,
     "trigger": "auto"
    }
   ]
