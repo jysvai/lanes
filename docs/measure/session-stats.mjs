@@ -208,27 +208,33 @@ for (const t of taskList) {
 // with a read-only command (the plugin asks Claude Code instead, which a transcript doesn't keep).
 const LOOK_CMD = /^(?:grep|rg|find|ls|dir|tree|cat|type|head|tail|less|wc|du|stat|file|which|where|sed\s+-n|awk|jq|diff|git\s+(?:log|show|diff|status|blame|grep|ls-files)|Get-Content|gc|Select-String|Get-ChildItem|gci|Get-Item|Test-Path)\b/i
 const commandOf = c => String(c ?? '').trim().replace(/^(?:cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S*)\s*;?\s*)+/, '')
-const laneNames = new Set()
-for (const f of readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.startsWith(mainId))) {
-  const info = {}
-  requests(join(dir, f), info)
-  if (info.name && /-(?:mid|low)$/.test(info.name)) laneNames.add(info.name)
-}
 const work = { look: 0, command: 0, browse: 0, edit: 0, handoff: 0, tookChars: 0 }
 const kindOf = new Map()
+// A hand-off is a new task for a lane: one `mcp__lanes__send`, one `/lane mid|low <task>`, or a message
+// by hand ("[T12] ...") whose task id main had not handed out before (a message to a lane about a task it
+// has is not one). The plugin counts the same way (noteIssued in register.ts).
+const issued = new Set()
+const taskIdOf = m => /^\s*(?:\(follow-up to [A-Z]\d+[a-z]?\)\s*)?\[([A-Z]\d+)[a-z]?\]/.exec(m)?.[1]
 for (const r of jsonl(mainFile)) {
   const at = Date.parse(r.timestamp)
-  if (at > end || !Array.isArray(r.message?.content)) continue
+  if (at > end) continue
+  if (r.type === 'system' && typeof r.content === 'string' && r.content.includes('<command-name>/lane</command-name>') && /<command-args>\s*(?:mid|low)\s+\S/i.test(r.content)) work.handoff += 1
+  if (!Array.isArray(r.message?.content)) continue
   for (const c of r.message.content) {
     if (r.type === 'assistant' && c.type === 'tool_use') {
       const n = c.name
       const kind = /^mcp__.*(?:chrome|playwright|browser|puppeteer)/i.test(n) ? 'browse'
-        : n === 'mcp__lanes__send' || (n === 'SendMessage' && laneNames.has(c.input?.to)) ? 'handoff'
+        : n === 'mcp__lanes__send' ? 'handoff'
+        : n === 'SendMessage' && typeof c.input?.message === 'string' && taskIdOf(c.input.message) && !issued.has(taskIdOf(c.input.message)) ? (issued.add(taskIdOf(c.input.message)), 'handoff')
         : /^(?:Write|Edit|MultiEdit|NotebookEdit)$/.test(n) ? 'edit'
         : /^(?:Read|Grep|Glob|WebFetch|WebSearch)$/.test(n) || /^mcp__context7__/.test(n) ? 'look'
         : n === 'Bash' || n === 'PowerShell' ? (LOOK_CMD.test(commandOf(c.input?.command)) ? 'look' : 'command')
         : undefined
       if (kind) { work[kind] += 1; kindOf.set(c.id, kind) }
+    }
+    if (r.type === 'user' && c.type === 'tool_result' && kindOf.get(c.tool_use_id) === 'handoff') {
+      const id = /^(T\d+)/.exec(typeof c.content === 'string' ? c.content : (c.content ?? []).map(x => x.text ?? '').join(''))?.[1]
+      if (id) issued.add(id)
     }
     if (r.type === 'user' && c.type === 'tool_result' && ['look', 'command'].includes(kindOf.get(c.tool_use_id))) {
       work.tookChars += (typeof c.content === 'string' ? c.content : (c.content ?? []).map(x => x.text ?? '').join('')).length

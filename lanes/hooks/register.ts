@@ -633,11 +633,10 @@ async function carryCleared($: EngineInterface) {
 }
 
 // What one of main's own tool calls was (see Use). A Bash or PowerShell command the tool itself
-// held read-only (ls, grep, git log, ...) is a lookup, as are reads and searches. A message
-// carrying a task id ("[T7] ...") hands a lane work, whether it names the lane or its address.
-function useOf(tool: string, message: unknown, isReadOnly: boolean): Use | undefined {
+// held read-only (ls, grep, git log, ...) is a lookup, as are reads and searches. (A hand-off is
+// counted where the task id is recorded: dispatch(), and the SendMessage hook for a task sent by hand.)
+function useOf(tool: string, isReadOnly: boolean): Use | undefined {
   if (/^mcp__.*(?:chrome|playwright|browser|puppeteer)/i.test(tool)) return 'browse'
-  if (tool === 'SendMessage') return typeof message === 'string' && isTask(message) ? 'handoff' : undefined
   if (/^(?:Write|Edit|MultiEdit|NotebookEdit)$/.test(tool)) return 'edit'
   if (isReadOnly || /^(?:Read|Grep|Glob|WebFetch|WebSearch)$/.test(tool)) return 'look'
   if (tool === 'Bash' || tool === 'PowerShell') return 'command'
@@ -1349,12 +1348,16 @@ async function readQueue($: EngineInterface, t: Tier): Promise<string[]> {
 // queue once it is idle again (pump), and a closed lane is opened and takes the
 // queue when it starts.
 // The task ids this machine's main sessions handed out: only their replies reach a later main's prompt.
+// True when the message carried a task id main had not handed out before: a new task for a lane.
 async function noteIssued($: EngineInterface, message: string) {
   const id = message.match(/^\s*(?:\(follow-up to [A-Z]\d+[a-z]?\)\s*)?\[([A-Z]\d+)[a-z]?\]/)?.[1]
-  if (id === undefined) return
+  if (id === undefined) return false
   const issued = await readJson<Record<string, number>>($, issuedFile(), {})
+  const fresh = issued[id] === undefined
   issued[id] = await $.clock.now()
   await $.fs.write(issuedFile(), JSON.stringify(keepNewest(issued, LEDGER_MAX * 2, at => at)))
+
+  return fresh
 }
 
 async function dispatch($: EngineInterface, t: Tier, task: string) {
@@ -1730,10 +1733,15 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
     const sent = await next(e)
-    const input = e as unknown as { message?: unknown; to?: unknown }
+    const input = e as unknown as { message?: unknown; to?: unknown; agentId?: string }
     if (tier !== undefined) await noteReply($, input.message, input.to)
-    // a task main hands a lane by hand counts as handed out, as one sent with the send tool does
-    else if (isMain && typeof input.message === 'string') await noteIssued($, input.message)
+    // a task main hands a lane by hand counts as handed out, as one sent with the send tool does; and as
+    // a hand-off only if its id is new: dispatch() has counted the message it sends itself to a live
+    // lane (that send passes through here too), and "[T7] one more thing" to a lane on T7 is not a new task
+    else if (isMain && input.agentId === undefined && typeof input.message === 'string') {
+      const fresh = await noteIssued($, input.message)
+      if (fresh && (sent as { deny?: string } | undefined)?.deny === undefined) await noteUse($, 'handoff', 0)
+    }
 
     return sent
   })
@@ -1762,11 +1770,11 @@ export const register: Register = (on, options) => {
   // its context (see noteUse). Only looks on: a failure here leaves the call's result as it was.
   on('tool.call', async ($, e, next) => {
     const done = await next(e)
-    const call = e as unknown as { tool: string; agentId?: string; message?: unknown }
+    const call = e as unknown as { tool: string; agentId?: string }
     const result = done as unknown as { deny?: string; text?: unknown; isReadOnly?: boolean; context?: readonly string[] } | undefined
     if (!isMain || call.agentId !== undefined || result?.deny !== undefined || call.tool === 'mcp__lanes__send') return done
     try {
-      const use = useOf(call.tool, call.message, result?.isReadOnly === true)
+      const use = useOf(call.tool, result?.isReadOnly === true)
       if (use === undefined) return done
       const note = await noteUse($, use, use === 'look' || use === 'command' || use === 'browse' ? String(result?.text ?? '').length : 0)
 

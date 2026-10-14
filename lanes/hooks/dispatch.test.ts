@@ -62,6 +62,28 @@ test('/lane low <task> numbers the task and hands it to the running low lane', a
   expect(sent.text).toBe('[T1] list every file under src\nout: .claude/lanes/out/T1.md\nreply to: demo-main')
 })
 
+test('a task handed to a running lane is one hand-off, a message about it none, a new task by hand one', async ($, on) => {
+  const sent: { to?: unknown; text?: string } = {}
+  ground(on, sent)
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+  on('turn.step', async function* ($, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: { model: 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 } } as never
+  })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  expect((await $.command.run({ command: 'lane', args: 'low list every file under src' } as never)).text).toBe('T1 → demo-55c5-low')
+  // the engine delivers that to the running lane through the SendMessage tool, hooks and all
+  await $.tool.call({ tool: 'SendMessage', to: sent.to, message: sent.text } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-55c5-low', message: '[T1] skip the vendor folder' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-55c5-low', message: '[T7] count the tests' } as never)
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 3 })) {
+    // drain
+  }
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+
+  // T1, sent once though its delivery passed the SendMessage hook too, and T7
+  expect(text).toContain('  2 hand-offs to the lanes.')
+})
+
 test('/lane <request> hands the request to the main model to run across the lanes', async ($, on) => {
   const sent: { to?: unknown; text?: string } = {}
   const submitted: string[] = []
