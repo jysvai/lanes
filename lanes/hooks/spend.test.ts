@@ -315,6 +315,31 @@ test("main's carry record outlives a plugin reload, and a /clear closes it", asy
   expect(JSON.parse(files['C:/work/demo/.claude/lanes/state/main.carry.json'] ?? '{}')['session-1'].later.T3).toEqual({ read: 100, requests: 2 })
 })
 
+test("a context that holds more than where main last compacted fills no sooner than at the most it held", async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/mid.spend.json': JSON.stringify({ [today]: { calls: 5, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 1, onMain: 2 } }),
+    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({
+      T3: { lane: 'mid', goal: 'survey the logs', started: 0, ended: 0, verdict: 'DONE', calls: 5, cost: 1, onMain: 2, firstPrompt: 40_000, lastPrompt: 140_000 },
+    }),
+  }
+  // compacted on its own at 200k; after the answer main goes 100k → 280k and doesn't compact again
+  const prompts = [100, 150, 200, 250, 280]
+  let i = 0
+  ground(on, files, {}, () => cached('claude-opus-5-5', prompts[i++] ?? 0))
+  on('session.receive', ($, e) => ({ text: e.text }) as never)
+  on('session.compact', () => ({ messages: [summary], tokensBefore: 200_000, tokensAfter: 40_000 }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.session.compact({ trigger: 'auto', messages: [summary] } as never)
+  await $.session.receive({ origin: { kind: 'peer' }, text: '<agent-message from-name="demo-55c5-mid">\n[T3 DONE] done\n</agent-message>' } as never)
+  for (const _ of prompts) await request($, 'claude-opus-5-5')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+
+  // 100k read: at 200k the context would have been full, but it held 280k, so it fills there;
+  // the requests at 100k and 150k would have carried it (2 × 100k × $0.20/M)
+  expect(text).toContain('  (T3 100k × 2 requests)')
+  expect(text).toContain('filled and started over: ≈$0.04 on opus-5-5')
+})
+
 test('main counts its own lookups, commands and edits, and past 20k tokens read since its last hand-off its next result carries a note', async ($, on) => {
   const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
   ground(on, files, {}, cached('claude-opus-5-5', 50))

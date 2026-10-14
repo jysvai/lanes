@@ -563,10 +563,12 @@ let sessionKey = ''
 let lastPrompt = 0
 
 // How many of main's requests from `from` on would have read `read` more before main's
-// context, that much fuller, reached `cap` and started over.
+// context, that much fuller, reached `cap` and started over. A context that went on to hold
+// more than `cap` without starting over fills no sooner than at the most it held.
 function carried(sizes: number[], from: number, read: number, cap: number) {
   const after = sizes.slice(from)
-  const full = after.findIndex(k => k + read >= cap)
+  const fill = Math.max(cap, ...after)
+  const full = after.findIndex(k => k + read >= fill)
 
   return full === -1 ? after.length : full
 }
