@@ -151,11 +151,34 @@ start_lane() {
   echo "$name starting ($(model_of "$tier"), effort $(effort_of "$tier")${fallback:+, fallback $fallback})"
 }
 
+# the processes under a pid (a lane's shells, and the browsers and servers they started), deepest first
+descendants() {
+  local c
+  for c in $(pgrep -P "$1" 2>/dev/null); do
+    descendants "$c"
+    echo "$c"
+  done
+}
+
 stop_lane() {
-  local name="$slug-$1" pid
+  local name="$slug-$1" pid kids i k
   pid="$(peer_pid "$name")"
   if [ -z "$pid" ]; then echo "$name was not running"; return; fi
-  kill "$pid"
+  # what the lane started goes with it, as taskkill /T does on Windows
+  kids="$(descendants "$pid")"
+  # shellcheck disable=SC2086
+  if [ -n "$kids" ]; then kill $kids 2>/dev/null || true; fi
+  kill "$pid" 2>/dev/null || true
+  # gone before this returns: a lane opened again right after must not meet this one still
+  # shutting down, and writing its state over the new one's
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  # then by force, only what is still there (a pid that has gone may soon be another process's)
+  for k in $kids "$pid"; do
+    if kill -0 "$k" 2>/dev/null; then kill -9 "$k" 2>/dev/null || true; fi
+  done
   # a killed session may not remove its own registry entry, and other sessions would keep messaging it
   rm -f "$config_home/sessions/$pid.json"
   echo "$name stopped (pid $pid)"

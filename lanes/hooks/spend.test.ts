@@ -361,6 +361,44 @@ test('main counts its own lookups, commands and edits, and past 20k tokens read 
   expect(text).toContain('what main did itself\n  3 lookups and 1 other command, whose output (≈33k tokens) it read and carried; 1 edit; 0 hand-offs to the lanes.')
 })
 
+test('each reminder main lets pass doubles the reading before the next; a hand-off brings it back', async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  // about 8k tokens each
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '' }, text: 'x'.repeat(25_000), isReadOnly: true }) as never)
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const noted = async (n: number) => {
+    const at: number[] = []
+    for (let i = 1; i <= n; i++) if (((await $.tool.call({ tool: 'Bash', command: `grep -rn a${i} src` } as never)) as { context?: string[] }).context) at.push(i)
+
+    return at
+  }
+
+  // at 25k, then at 42k more (past 40k), then past 80k
+  expect(await noted(18)).toEqual([3, 8, 18])
+
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-55c5-low', message: '[T5] check the build' } as never)
+
+  expect(await noted(3)).toEqual([3])
+})
+
+test("main reading a lane's report or notes isn't counted as reading it did itself", async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, cached('claude-opus-5-5', 50))
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'read', text: 'x'.repeat(100_000) }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  const report = (await $.tool.call({ tool: 'Read', file_path: 'C:\\work\\demo\\.claude\\lanes\\out\\T3.md' } as never)) as { context?: string[] }
+  const code = (await $.tool.call({ tool: 'Read', file_path: 'C:/work/demo/src/app.ts' } as never)) as { context?: string[] }
+
+  expect(report.context).toBeUndefined()
+  expect(code.context?.[0]).toContain('you have read about 33k tokens')
+  const text = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text ?? ''
+  expect(text).toContain('  1 lookup and 0 other commands')
+})
+
 test('the reminder comes at the number of tokens set in /config', { options: { nudge_tokens: 50_000 } }, async ($, on) => {
   const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
   ground(on, files, {}, cached('claude-opus-5-5', 50))

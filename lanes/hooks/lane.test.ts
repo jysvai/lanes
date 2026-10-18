@@ -86,6 +86,7 @@ test('a claude -p started inside the lane (a summary hook, say) leaves the lane 
 test('the plugin reloading inside a busy lane keeps its task', async ($, on) => {
   const files: Record<string, string> = {
     'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'busy', since: 5, sessionId: 'lane-1', task: '[T10] audit', last: '', turns: 3, tokens: { input: 1, output: 2, cacheRead: 3 } }),
+    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({ T10: { lane: 'low', goal: 'audit', started: 5, calls: 2, cost: 0.01, onMain: 0.1 } }),
   }
   ground(on, files)
   await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
@@ -93,6 +94,8 @@ test('the plugin reloading inside a busy lane keeps its task', async ($, on) => 
   expect(state(files).state).toBe('busy')
   expect(state(files).task).toBe('[T10] audit')
   expect(state(files).turns).toBe(3)
+  // and its task stays open
+  expect(ledger(files).T10.verdict).toBeUndefined()
 })
 
 test('a turn raised by a background job finishing keeps the current task', async ($, on) => {
@@ -136,6 +139,91 @@ test('each task goes in the ledger with how it ended, and the lane keeps it in c
   expect(ledger(files).T8).toMatchObject({ goal: 'list the tests', started: 90_000 })
   expect(ledger(files).T8.verdict).toBeUndefined()
   expect(state(files).context).toEqual(['T7'])
+})
+
+test('a reply to a task the lane left open while it took the next still ends that task', async ($, on) => {
+  const files: Record<string, string> = {}
+  const clock = ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T1] collect the event pages' } as never)
+  await $.turn.complete({ turnId: 't1', answer: 'the crawl runs in the background', toolUses: [], usage: null } as never)
+  // idle on its background job, it takes the next task that comes
+  await $.session.receive({ origin: { kind: 'peer' }, text: '[T2] collect the logos' } as never)
+  await $.turn.start({ turnId: 't2', text: '[T2] collect the logos' } as never)
+  await clock.advance(60_000)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T1 DONE] 40 pages' } as never)
+
+  expect(ledger(files).T1).toMatchObject({ ended: 60_000, verdict: 'DONE', reply: '[T1 DONE] 40 pages' })
+  expect(state(files).task).toBe('[T2] collect the logos')
+  expect(state(files).open).toBe(true)
+
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T2 DONE] 3 logos' } as never)
+
+  expect(ledger(files).T2.verdict).toBe('DONE')
+  expect(state(files).context).toEqual(['T1', 'T2'])
+})
+
+test('a waiting task the lane answers along with the current one ends then, and waits no more', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files' } as never)
+  await $.session.receive({ origin: { kind: 'peer' }, text: '[T8] list the tests' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T8 DONE] 9 tests' } as never)
+
+  expect(ledger(files).T8).toMatchObject({ goal: 'list the tests', verdict: 'DONE' })
+  expect(state(files).next).toEqual([])
+
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] 12 files' } as never)
+
+  expect(ledger(files).T7.verdict).toBe('DONE')
+  expect(state(files).open).toBe(false)
+})
+
+test('a new lane session ends what the last one left open as STOPPED, at its last request', async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'busy', since: 5, sessionId: 'lane-0', task: '[T4] crawl the notices', last: '', turns: 3, tokens: { input: 1, output: 2, cacheRead: 3 } }),
+    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({
+      T4: { lane: 'low', goal: 'crawl the notices', started: 1_000, last: 5_000, calls: 3, cost: 0.1, onMain: 1 },
+      T5: { lane: 'low', goal: 'count', started: 6_000, ended: 9_000, verdict: 'DONE', calls: 1, cost: 0.01, onMain: 0.1 },
+    }),
+  }
+  ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+
+  expect(ledger(files).T4).toMatchObject({ ended: 5_000, verdict: 'STOPPED' })
+  expect(ledger(files).T5).toMatchObject({ ended: 9_000, verdict: 'DONE' })
+  expect(state(files).task).toBe('')
+})
+
+test('a correction of a reply takes the verdict and keeps when the task ended', async ($, on) => {
+  const files: Record<string, string> = {}
+  const clock = ground(on, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files' } as never)
+  await clock.advance(60_000)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] 12 files' } as never)
+  await clock.advance(60_000)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] corrects my earlier reply: 14 files' } as never)
+
+  expect(ledger(files).T7).toMatchObject({ ended: 60_000, verdict: 'DONE', reply: '[T7 DONE] corrects my earlier reply: 14 files' })
+})
+
+test('a /clear in a lane leaves it idle with nothing in context, not closed', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files)
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }) as never)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files' } as never)
+  await $.tool.call({ tool: 'SendMessage', to: 'demo-main', message: '[T7 DONE] 12 files' } as never)
+  await $.session.end({ reason: 'clear', sessionId: 'lane-1' } as never)
+
+  expect(state(files).state).toBe('idle')
+  expect(state(files).context).toEqual([])
+
+  await $.session.end({ reason: 'exit', sessionId: 'lane-2' } as never)
+
+  expect(state(files).state).toBe('off')
 })
 
 test("a lane can't write the repo's files, only under .claude/lanes and outside the repo", async ($, on) => {

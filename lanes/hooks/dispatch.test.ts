@@ -5,7 +5,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, fs: { exists?: (path: string) => boolean; list?: (path: string) => unknown[] | undefined } = {}) {
+function ground(on: On, sent: { to?: unknown; text?: string; run?: string; runs?: string[] }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, fs: { exists?: (path: string) => boolean; list?: (path: string) => unknown[] | undefined } = {}) {
   mock.env(on, env)
   const clock = mock.clock(on)
   files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-55c5-low', sessionId: 'lane-1' })
@@ -44,6 +44,7 @@ function ground(on: On, sent: { to?: unknown; text?: string; run?: string }, fil
   on('session.receive', ($, e) => ({ text: e.text }) as never)
   on('process.run', ($, e) => {
     sent.run = JSON.stringify(e)
+    sent.runs?.push(sent.run)
 
     return { value: { stdout: 'demo-55c5-low starting', stderr: '', exitCode: 0 } } as never
   })
@@ -133,6 +134,105 @@ test('a lane killed without clearing its registry entry gets a fresh lane, and t
 
   expect(ran.text).toBe('T1 queued for demo-55c5-low; demo-55c5-low starting. The lane picks it up when it opens.')
   expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')[0].startsWith('[T1] count the files')).toBe(true)
+})
+
+// the low lane's session 11 (lane-1) went off: it asked to exit and is still registered
+const closing = JSON.stringify({ tier: 'low', state: 'off', since: 0, sessionId: 'lane-1', task: '[T2] count the files', last: '', turns: 1, tokens: { input: 0, output: 0, cacheRead: 0 } })
+
+test('a task for a lane that is closing goes to a fresh lane, not into a session that takes no more', async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': closing }
+  ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the tests' } as never)
+
+  expect(ran.text).toBe('T1 queued for demo-55c5-low; it was closing, so demo-55c5-low starting. The lane picks it up when it opens.')
+  expect(sent.to).toBeUndefined()
+  expect(sent.runs?.map(r => (r.includes("'stop'") ? 'stop' : r.includes("'start'") ? 'start' : '?'))).toEqual(['stop', 'start'])
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')[0].startsWith('[T1] count the tests')).toBe(true)
+})
+
+test("a new lane session under the name, still starting, isn't taken for the closing one", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': closing.replace('lane-1', 'lane-0') }
+  ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the tests' } as never)
+
+  expect(ran.text).toBe('T1 → demo-55c5-low')
+  expect(sent.runs).toEqual([])
+})
+
+test('tasks waiting behind a lane that closed with them queued move to a fresh lane, once', async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': closing,
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T3] list the tests']),
+  }
+  const clock = ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await clock.advance(30_000)
+
+  expect(sent.runs).toEqual([])
+
+  // its session is still registered after the stop (the mock doesn't remove it): no second try for a while
+  await clock.advance(60_000)
+
+  expect(sent.runs?.length).toBe(2)
+  expect(sent.to).toBeUndefined()
+  expect(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json']).toBe(JSON.stringify(['[T3] list the tests']))
+})
+
+test('/lane stop drops the tasks still waiting, and says which', async ($, on) => {
+  const sent: { to?: unknown; text?: string; run?: string } = {}
+  const files: Record<string, string> = {
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T3] a\nout: .claude/lanes/out/T3.md', '[T4] b\nout: .claude/lanes/out/T4.md']),
+  }
+  ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'stop' } as never)
+
+  expect(ran.text).toContain('waiting tasks dropped: T3, T4 (send them again to run them)')
+  expect(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json']).toBe('[]')
+})
+
+test('/lane stop names the task a lane was on, and those it had taken in to do after', async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'busy', open: true, since: 0, sessionId: 'lane-1', task: '[T9] crawl the notices', next: ['[T10] count them'], last: '', turns: 1, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T11] list them']),
+  }
+  ground(on, {}, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'stop low' } as never)
+
+  expect(ran.text).toContain('\nstopped mid-task: T9 (/lane tasks shows it STOPPED)\nwaiting tasks dropped: T10, T11 (send them again to run them)')
+})
+
+test('two hand-offs to a closed lane moments apart open it once', async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {}
+  ground(on, sent, files)
+  delete files['C:/Users/me/.claude/sessions/11.json']
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'lane', args: 'low count the files' } as never)
+  const second = await $.command.run({ command: 'lane', args: 'low list the tests' } as never)
+
+  expect(second.text).toBe('T2 queued for demo-55c5-low; demo-55c5-low opening. The lane picks it up when it opens.')
+  expect(sent.runs?.length).toBe(1)
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]').length).toBe(2)
+})
+
+test('/lane status shows how far a running task has got: its requests, its cost, its last request', async ($, on) => {
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'busy', since: 0, sessionId: 'lane-1', task: '[T9] count the files', last: '', turns: 0, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({ T9: entry('low', 'count the files', 0, { calls: 12, cost: 0.34, last: 60_000 }) }),
+  }
+  const clock = ground(on, {}, files)
+  await clock.advance(180_000)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const status = (await $.command.run({ command: 'lane', args: 'status' } as never)).text ?? ''
+
+  expect(status).toContain('  task: [T9] count the files\n  so far: 12 requests · $0.34 · last one 2m ago')
 })
 
 test('a subcommand with a wrong argument, or a slip of one, shows the usage instead of becoming a request', async ($, on) => {
@@ -506,8 +606,13 @@ test("a progress ping counts only from this project's lanes and on the first lin
   expect(JSON.stringify(ping)).toContain('consumed')
   const status = JSON.stringify(await $.tool.call({ tool: 'mcp__lanes__status' } as never))
 
-  expect(status).toContain('progress: demo-55c5-low: T9 2/3')
+  expect(status).toContain('progress: T9 2/3')
   expect(status).not.toContain('\u001b')
+
+  // the task's reply ends what its pings said
+  await $.session.receive({ origin: { kind: 'peer' }, text: '<agent-message from-name="demo-55c5-low">\n[T9 DONE] 4 files\n</agent-message>' } as never)
+
+  expect(JSON.stringify(await $.tool.call({ tool: 'mcp__lanes__status' } as never))).not.toContain('progress:')
 })
 
 test('by default main fits the split to how the person works, and the lanes take side work from the first idea on', async ($, on) => {
@@ -539,16 +644,20 @@ test('the low lane falls back to Sonnet 5.5, never to an older model', async ($,
 
 test('/lane tasks lists both lanes\' tasks newest first, with what each cost', async ($, on) => {
   const files: Record<string, string> = {
-    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({ T1: entry('low', 'count the files', 0, { ended: 60_000, verdict: 'DONE' }) }),
-    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({ T2: entry('mid', 'run the tests', 120_000) }),
+    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({
+      T1: entry('low', 'count the files', 0, { ended: 60_000, verdict: 'DONE' }),
+      T2: entry('low', 'run the tests', 120_000),
+    }),
+    // the mid lane isn't running: its open task will get no reply
+    'C:/work/demo/.claude/lanes/state/mid.tasks.json': JSON.stringify({ T3: entry('mid', 'play case 6', 150_000, { last: 210_000 }) }),
   }
   const clock = ground(on, {}, files)
   await clock.advance(300_000)
   await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
   const ran = await $.command.run({ command: 'lane', args: 'tasks' } as never)
 
-  expect(ran.text).toContain('  T2    mid  open       3m    $0.01 (on main $0.20)  run the tests\n  T1    low  DONE       1m')
-  expect(ran.text).toContain('all 2 tasks: $0.02, on opus-5-5 $0.40.')
+  expect(ran.text).toContain('  T3    mid  STOPPED    1m    $0.01 (on main $0.20)  play case 6\n  T2    low  open       3m    $0.01 (on main $0.20)  run the tests\n  T1    low  DONE       1m')
+  expect(ran.text).toContain('all 3 tasks: $0.03, on opus-5-5 $0.60.')
 })
 
 test("a Write that was refused doesn't seal notes that came with the repo", async ($, on) => {

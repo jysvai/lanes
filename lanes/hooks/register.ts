@@ -57,7 +57,9 @@ type TaskEntry = {
   goal: string
   started: number
   ended?: number
-  /** PASS, FAIL, DONE, ... from the lane's final reply */
+  /** when the lane last made a request for the task */
+  last?: number
+  /** PASS, FAIL, DONE, ... from the lane's final reply; STOPPED for one the lane never answered (stopped, closed, or dropped for a newer task) */
   verdict?: string
   reply?: string
   /** whom the final reply went to */
@@ -126,7 +128,8 @@ const PRICES: [RegExp, Rate, Rate?][] = [
 const RANK: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 const MODES: PermissionMode[] = ['auto', 'acceptEdits', 'dontAsk', 'manual', 'bypassPermissions']
 const STYLES: Style[] = ['auto', 'developer', 'planner', 'beginner']
-const PROGRESS_MS = 15 * 60_000
+// a lane pings at most every 10 minutes: one ping missed still leaves the last one shown
+const PROGRESS_MS = 30 * 60_000
 const POLL_MS = 5000
 // a reply no main session saw is handed to the next one for this long
 const INBOX_MS = 3 * 24 * 60 * 60_000
@@ -172,7 +175,8 @@ let tier: Tier | undefined
 let isMain = false
 let me: LaneState | undefined
 let pending = ''
-let progress = { text: '', at: 0 }
+// each lane's latest "[progress] ..." ping
+const progress: Partial<Record<Tier, { text: string; at: number }>> = {}
 // when this session last opened each lane, until the lane shows up as a peer
 const opening: Partial<Record<Tier, number>> = {}
 // a lane not up by then is likely held by a prompt in its window, or exited
@@ -411,6 +415,9 @@ async function realOf($: EngineInterface, path: string) {
   return undefined
 }
 
+// A file under the project's .claude/lanes (reports, notes, logs), by its path.
+const isLanesFile = (path: string) => canonical(/^([a-zA-Z]:)?[\\/]/.test(path) ? path : `${project}/${path}`).startsWith(`${canonical(dir)}/`)
+
 // A path inside the repo but outside .claude/lanes: main's to change, not a lane's. Checked
 // on the spelling, then on where the path and the repo really land, so a junction, a short
 // name or a \\?\ spelling doesn't get round it.
@@ -512,7 +519,8 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
     me.tokens.output += usage.output_tokens
     me.tokens.cacheRead += usage.cache_read_input_tokens
   }
-  const day = dayOf(await $.clock.now())
+  const now = await $.clock.now()
+  const day = dayOf(now)
   // A gateway can answer under a name of its own (a Bedrock application inference profile's
   // ARN, a deployment alias): the request is then priced by the model it asked for.
   const cost = price(usage.model, usage) ?? price(asked, usage)
@@ -527,9 +535,12 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   s.onMain += price(cfg.main.model, usage) ?? cost ?? 0
   await saveSpend($, role)
   if (role === 'main' && agentId === undefined) await carryStep($, prompt)
+  // a lane's tokens so far, for /lane status while it works
+  await save($)
   // a lane's request also counts toward the task it is on
   const entry = me === undefined ? undefined : ledger[taskId(me.task)]
   if (entry === undefined) return
+  entry.last = now
   entry.calls += 1
   entry.cost += cost ?? 0
   entry.onMain += price(cfg.main.model, usage) ?? cost ?? 0
@@ -625,6 +636,7 @@ async function carryCompacted($: EngineInterface, trigger: string, tokensBefore:
 // new session id with no session.start, so the next stretch is kept under that id.
 async function carryCleared($: EngineInterface) {
   readSince = 0
+  nudgeScale = 1
   if (stretch === undefined) return
   closeStretch(stretch.cap || Math.max(0, ...stretch.sizes))
   await saveStretch($)
@@ -646,10 +658,14 @@ function useOf(tool: string, isReadOnly: boolean): Use | undefined {
 
 // What main reads of its lookups, browser pages and commands since its last hand-off (or its
 // last compaction), in characters. Past cfg.nudgeTokens tokens of it (0: never), the next one's
-// result carries a note that the lanes could take that.
+// result carries a note that the lanes could take that. Each note main lets pass without a
+// hand-off doubles the reading before the next one: in a stretch of its own work (build, fix,
+// test) the same note at the same pace is noise. A compaction empties what main carries but
+// leaves the doubling: how main is working hasn't changed.
 // a rough count: code and English run near 4 characters a token, Korean and the like fewer
 const CHARS_PER_TOKEN = 3
 let readSince = 0
+let nudgeScale = 1
 
 const nudge = (k: number) =>
   [
@@ -666,9 +682,11 @@ async function noteUse($: EngineInterface, use: Use, chars: number) {
   s.uses = { ...s.uses, [use]: (s.uses?.[use] ?? 0) + 1 }
   s.took = (s.took ?? 0) + chars
   readSince = use === 'handoff' ? 0 : readSince + chars
-  if (cfg.nudgeTokens === 0 || readSince / CHARS_PER_TOKEN < cfg.nudgeTokens) return undefined
+  if (use === 'handoff') nudgeScale = 1
+  if (cfg.nudgeTokens === 0 || readSince / CHARS_PER_TOKEN < cfg.nudgeTokens * nudgeScale) return undefined
   const k = Math.round(readSince / CHARS_PER_TOKEN / 1000)
   readSince = 0
+  nudgeScale *= 2
 
   return nudge(k)
 }
@@ -712,8 +730,11 @@ type Task = [id: string, t: TaskEntry, isEstimate: boolean]
 async function laneTasks($: EngineInterface): Promise<Task[]> {
   const logs = Object.fromEntries(await Promise.all(TIERS.map(async t => [t, await readSpend($, t)] as const))) as Record<Tier, SpendLog>
   const ledgers = await Promise.all(TIERS.map(t => readJson<Ledger>($, ledgerFile(t), {})))
+  const live = await peers($)
 
-  return ledgers.flatMap(l => Object.entries(l)).map(([id, t]): Task => {
+  return ledgers.flatMap(l => Object.entries(l)).map(([id, entry]): Task => {
+    // one still open in a lane that is gone gets no reply (its next session closes it the same way)
+    const t = isOpen(entry) && !live.has(laneName(entry.lane)) ? { ...entry, ended: entry.last ?? entry.started, verdict: 'STOPPED' } : entry
     const s = logs[t.lane]?.[dayOf(t.started)]
     if (t.cost > 0 || t.calls === 0 || !s?.repriced || !s.repricedCost) return [id, t, false]
     const cost = (s.repricedCost / s.repriced) * t.calls
@@ -996,6 +1017,7 @@ function policy() {
     'You keep the main line of work (writing code and content, the decisions); the lanes take what runs beside it, at any stage: while an idea is still being shaped as much as while code is being written.',
     STYLE_POLICY[cfg.style],
     "Decide what goes to a lane before you start a piece of work, not partway through it. A lane's: reading several files you won't change, surveying a codebase, a folder or the web, running a build or a test suite and reading its output, digging through logs, checking a change you made. Send it first and work on your part while it runs. Yours: reading the code you are about to change, and a question a file or two answers.",
+    'A lane takes one task at a time, in the order sent, and a playtest or a full review can run an hour: split such work into one case or one area per task, so something urgent can get in between. Before an urgent hand-off, check mcp__lanes__status for what the lane is on.',
     'A short one-off lookup can still go to a subagent, and any token-saving or delegating skill or plugin the person has works alongside the lanes: keep the lanes for work that runs longer, builds on earlier work, or should outlive this session.',
     'Only you edit code and content, commit, push and deploy. Hand a lane work that would otherwise fill your context: mcp__lanes__send({ lane, task }) gives it a task id and a report file and opens the lane if it is closed. The lane answers in a few lines as a message; read its full report in .claude/lanes/out/<id>.md only when the answer is not enough. Shared notes live in .claude/lanes/notes/. mcp__lanes__status shows what each lane is doing; never message a lane just to ask.',
     'A lane outlives your context: it keeps what it found after you compact, clear or restart. mcp__lanes__status lists the tasks a lane still holds in context; for more on one of them, send that lane "(follow-up to T7) <what>" instead of explaining again.',
@@ -1217,13 +1239,19 @@ async function report($: EngineInterface) {
         : ''
       const head = `${laneName(t)}: ${cell} · ${cfg[t].model}, effort ${cfg[t].effort}${stuck}`
       if (s === undefined) return head
-      const ping = progress.text.startsWith(laneName(t)) && now - progress.at < PROGRESS_MS ? `\n  progress: ${progress.text}` : ''
+      // the latest ping on the task running now (a reply clears it)
+      const p = progress[t]
+      const ping = p !== undefined && s.state === 'busy' && now - p.at < PROGRESS_MS ? `\n  progress: ${p.text} (${ago(now - p.at)} ago)` : ''
       // only the live session that finished them still holds them
       const warm = live.get(laneName(t))?.sessionId === s.sessionId && s.context?.length ? s.context : []
+      // how far the running task has got, from its ledger entry
+      const on = s.state === 'busy' ? (await readJson<Ledger>($, ledgerFile(t), {}))[taskId(s.task)] : undefined
+      const sofar = on === undefined ? [] : [`  so far: ${on.calls} requests · $${on.cost.toFixed(2)}${on.last === undefined ? '' : ` · last one ${ago(now - on.last)} ago`}`]
 
       return [
         head + ping,
         `  task: ${s.task || '-'}`,
+        ...sofar,
         ...(s.state === 'busy' && s.next?.length ? [`  next: ${s.next.map(taskId).join(', ')}`] : []),
         ...(warm.length > 0 ? [`  in context: ${warm.join(', ')} (send a follow-up here)`] : []),
         `  last: ${s.last || '-'}`,
@@ -1267,6 +1295,10 @@ function psCommand(args: Record<string, string>, positional: string[]) {
 
 async function runScript($: EngineInterface, verb: 'start' | 'stop', which: Tier | 'all') {
   if (linked !== '' && verb === 'start') return `The lanes are off in this project: ${linked} is a link. Remove it and restart Claude Code.`
+  // opened moments ago and not registered yet: a second start would open a second lane under its name
+  // (one not up in that time is likely held by a prompt in its window, and the next start tries again)
+  const since = verb === 'start' && which !== 'all' ? opening[which] : undefined
+  if (since !== undefined && (await $.clock.now()) - since < OPENING_MS) return `${laneName(which as Tier)} opening`
   const none = (s: string) => s || 'none'
   const ran = isWindows
     ? await $.process.run(
@@ -1302,7 +1334,7 @@ async function runScript($: EngineInterface, verb: 'start' | 'stop', which: Tier
   const now = await $.clock.now()
   for (const t of which === 'all' ? TIERS : [which]) {
     if (verb === 'stop') delete opening[t]
-    else if (ran.exitCode === 0) opening[t] ??= now
+    else if (ran.exitCode === 0) opening[t] = now
   }
   await refresh($)
 
@@ -1370,9 +1402,16 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
   const replyTo = from === '' ? '' : `\nreply to: ${from}${mainAddress === '' ? '' : ` at ${mainAddress}`}`
   const body = `[${id}] ${task}\nout: .claude/lanes/out/${id}.md${replyTo}`
   const name = laneName(t)
-  const isLive = (await peers($)).has(name)
+  const peer = (await peers($)).get(name)
+  const isLive = peer !== undefined
   const state = await readLane($, t)
   const queued = await readQueue($, t)
+  if (isClosing(peer, state)) {
+    // It takes no more tasks, though a message to it still counts as delivered: a fresh lane takes this one.
+    await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
+
+    return `${id} queued for ${name}; it was closing, so ${await reopen($, t)}. The lane picks it up when it opens.${trustAsk()}`
+  }
   if (isLive && state?.state !== 'busy' && queued.length === 0) {
     const sent = await $.session.send({ to: name, text: body })
     if (sent.isDelivered) return `${id} → ${name}`
@@ -1390,6 +1429,45 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
 
 const trustAsk = () => (atHome ? ' Its window asks to trust your home folder first: accept it there.' : '')
 
+// A lane that has begun to close (its state went off) while its session is still there: it
+// asked to exit and may be held at a prompt there ("background tasks are running, exit anyway?").
+// A new session under the lane's name, still starting, has a session id of its own.
+const isClosing = (peer: Peer | undefined, s: LaneState | undefined) => peer !== undefined && s?.state === 'off' && s.sessionId === peer.sessionId
+
+// /lane stop and the stop tool: the lanes close, and what waited for them goes too (it
+// would otherwise run when the lane next opens, maybe days later).
+async function stopLanes($: EngineInterface, which: Tier | 'all') {
+  const live = await peers($)
+  const running: string[] = []
+  const dropped: string[] = []
+  for (const t of which === 'all' ? TIERS : [which]) {
+    // what a running lane is on, and what it took in to do after, go with it
+    const s = live.has(laneName(t)) ? await readLane($, t) : undefined
+    if (s?.open === true && isTask(s.task)) running.push(taskId(s.task))
+    dropped.push(...(s?.next ?? []).map(taskId))
+    const queued = await readQueue($, t)
+    if (queued.length === 0) continue
+    await $.fs.write(queueFile(t), '[]')
+    dropped.push(...queued.map(taskId))
+  }
+  const ran = await runScript($, 'stop', which)
+
+  return [
+    ran,
+    ...(running.length > 0 ? [`stopped mid-task: ${running.join(', ')} (/lane tasks shows it STOPPED)`] : []),
+    ...(dropped.length > 0 ? [`waiting tasks dropped: ${dropped.join(', ')} (send them again to run them)`] : []),
+  ].join('\n')
+}
+
+// The closing lane's session goes, and a fresh one opens to take the queue.
+const reopened: Partial<Record<Tier, number>> = {}
+async function reopen($: EngineInterface, t: Tier) {
+  reopened[t] = await $.clock.now()
+  await runScript($, 'stop', t)
+
+  return runScript($, 'start', t)
+}
+
 // Main side, every poll: hand the next queued task to a live lane that has been
 // idle a few seconds (a lane that just opened takes its queue itself first).
 async function pump($: EngineInterface) {
@@ -1399,6 +1477,13 @@ async function pump($: EngineInterface) {
     const queued = await readQueue($, t)
     if (queued.length === 0 || !live.has(laneName(t))) continue
     const s = await readLane($, t)
+    // a queue behind a lane that closed with it still waiting moves to a fresh lane (once in a
+    // while: one whose session wouldn't go is still there next poll)
+    if (isClosing(live.get(laneName(t)), s)) {
+      const last = reopened[t]
+      if (now - (s?.since ?? now) > 60_000 && (last === undefined || now - last > 120_000)) await reopen($, t)
+      continue
+    }
     if (s === undefined || s.state !== 'idle' || now - s.since < 10_000) continue
     const [next = '', ...rest] = queued
     await $.fs.write(queueFile(t), JSON.stringify(rest))
@@ -1432,6 +1517,7 @@ async function closeIfIdle($: EngineInterface) {
     return
   }
   me.state = 'off'
+  me.since = await $.clock.now()
   await save($)
   await $.command.run({ command: 'exit' })
 }
@@ -1446,6 +1532,8 @@ async function markBusy($: EngineInterface, from: string) {
   idleTimer?.cancel()
   me.state = 'busy'
   me.since = await $.clock.now()
+  // after a /clear the same lane runs under a new session id
+  me.sessionId = await $.session.id()
   // A turn raised by something other than a task (a background job finishing,
   // a reply from the other lane) carries on with the current task.
   const fresh = pending || (isTask(from) ? taskLine(from) : '')
@@ -1475,20 +1563,49 @@ async function queueBehind($: EngineInterface, message: string) {
   await openEntry($, me.task)
 }
 
+// A second reply on a task (a correction, a late one after STOPPED) takes the verdict; the task ended at its first.
+function endEntry(entry: TaskEntry, now: number, verdict: string, message: string, to: unknown) {
+  entry.ended ??= now
+  entry.verdict = verdict
+  entry.reply = firstLine(message)
+  entry.to = typeof to === 'string' ? to : undefined
+}
+
+const isOpen = (e: TaskEntry) => e.ended === undefined && e.verdict === undefined
+
+// A task its lane will never answer ends as STOPPED, at its last request.
+function stopEntry(entry: TaskEntry) {
+  entry.ended = entry.last ?? entry.started
+  entry.verdict = 'STOPPED'
+}
+
 // The lane's reply "[T7 PASS] ..." ends T7: its ledger entry takes the verdict, the
 // lane keeps T7 in context for follow-ups, and the next waiting task becomes current.
 // A note like "[T7] step 4 still running" is not a reply.
 async function noteReply($: EngineInterface, message: unknown, to: unknown) {
   if (me === undefined || typeof message !== 'string') return
-  const [, id, verdict] = message.match(/^\s*\[([A-Z]\d+[a-z]?)\s+([A-Z]{3,})\b/) ?? []
-  if (id === undefined || id !== taskId(me.task)) return
+  const [, id, verdict] = message.match(VERDICT) ?? []
+  if (id === undefined) return
   const now = await $.clock.now()
+  if (id !== taskId(me.task)) {
+    // A task the lane is no longer on still ends with its reply: one it left open while it
+    // took the next (it went idle waiting on a background job, and the next task came then),
+    // or one still waiting that it answered with the current one.
+    const waiting = (me.next ?? []).find(x => taskId(x) === id)
+    if (waiting !== undefined) await openEntry($, waiting)
+    const entry = ledger[id]
+    if (entry === undefined) return
+    endEntry(entry, now, verdict ?? '', message, to)
+    await saveLedger($)
+    me.next = (me.next ?? []).filter(x => x !== waiting)
+    me.context = [...(me.context ?? []).filter(x => x !== id), id].slice(-10)
+    await save($)
+
+    return
+  }
   const entry = ledger[id]
   if (entry !== undefined) {
-    entry.ended = now
-    entry.verdict = verdict
-    entry.reply = firstLine(message)
-    entry.to = typeof to === 'string' ? to : undefined
+    endEntry(entry, now, verdict ?? '', message, to)
     await saveLedger($)
   }
   me.context = [...(me.context ?? []).filter(x => x !== id), id].slice(-10)
@@ -1511,6 +1628,7 @@ async function markIdle($: EngineInterface, answer: string) {
   if (me === undefined) return
   me.state = 'idle'
   me.since = await $.clock.now()
+  me.sessionId = await $.session.id()
   me.next = []
   me.last = firstLine(answer)
   me.turns += 1
@@ -1518,9 +1636,19 @@ async function markIdle($: EngineInterface, answer: string) {
   armIdle($)
 }
 
+async function markCleared($: EngineInterface) {
+  if (me === undefined) return
+  me.state = 'idle'
+  me.since = await $.clock.now()
+  me.context = []
+  await save($)
+  armIdle($)
+}
+
 async function markOff($: EngineInterface) {
   if (me === undefined) return
   me.state = 'off'
+  me.since = await $.clock.now()
   await save($)
 }
 
@@ -1529,7 +1657,8 @@ async function startLane($: EngineInterface, t: Tier) {
   const sessionId = await $.session.id()
   const saved = await readLane($, t)
   // The plugin reloading inside a running lane keeps what the lane is doing.
-  me = saved !== undefined && saved.sessionId === sessionId && saved.state !== 'off'
+  const reloaded = saved !== undefined && saved.sessionId === sessionId && saved.state !== 'off'
+  me = reloaded
     ? saved
     : {
         tier: t,
@@ -1544,6 +1673,11 @@ async function startLane($: EngineInterface, t: Tier) {
         context: [],
       }
   ledger = await readJson<Ledger>($, ledgerFile(t), {})
+  // A new lane session: what the last one left open (it was stopped or closed mid-task, or
+  // dropped the task for a newer one) will get no reply now, and ends at its last request.
+  const left = reloaded ? [] : Object.values(ledger).filter(isOpen)
+  for (const e of left) stopEntry(e)
+  if (left.length > 0) await saveLedger($)
   await save($)
   $.ui.status(`${laneName(t)} lane · ${cfg[t].model}, effort ${cfg[t].effort} · replies go to whoever sent the task`)
   armIdle($)
@@ -1587,7 +1721,9 @@ async function startMain($: EngineInterface) {
 }
 
 async function notePing($: EngineInterface, ping: string, from: string | undefined) {
-  progress = { text: clean(`${from ? `${from}: ` : ''}${ping}`).slice(0, 200), at: await $.clock.now() }
+  const t = TIERS.find(x => laneName(x) === from)
+  if (t === undefined) return
+  progress[t] = { text: clean(ping).slice(0, 200), at: await $.clock.now() }
   await refresh($)
 }
 
@@ -1668,7 +1804,10 @@ export const register: Register = (on, options) => {
       const id = reply[1] ?? ''
       await markSeen($, [id])
       const lane = TIERS.find(t => laneName(t) === from)
-      if (lane !== undefined) await carryOpen($, [[id, (await readJson<Ledger>($, ledgerFile(lane), {}))[id]]])
+      if (lane !== undefined) {
+        delete progress[lane]
+        await carryOpen($, [[id, (await readJson<Ledger>($, ledgerFile(lane), {}))[id]]])
+      }
     }
     // A lane's "[progress] ..." ping goes to the status line instead of waking the main model.
     const ping = first.match(/^\[progress\]\s*(.+)$/)
@@ -1699,7 +1838,9 @@ export const register: Register = (on, options) => {
   })
 
   on('session.end', async ($, e, next) => {
-    await markOff($)
+    // a /clear or a resume in a lane goes on under a new session id: a lane that forgot, not one that closed
+    if (e.reason === 'clear' || e.reason === 'resume') await markCleared($)
+    else await markOff($)
     if (isMain) {
       // what main's tool calls added since its last model request
       await saveSpend($, 'main')
@@ -1770,9 +1911,11 @@ export const register: Register = (on, options) => {
   // its context (see noteUse). Only looks on: a failure here leaves the call's result as it was.
   on('tool.call', async ($, e, next) => {
     const done = await next(e)
-    const call = e as unknown as { tool: string; agentId?: string }
+    const call = e as unknown as { tool: string; agentId?: string; file_path?: unknown }
     const result = done as unknown as { deny?: string; text?: unknown; isReadOnly?: boolean; context?: readonly string[] } | undefined
     if (!isMain || call.agentId !== undefined || result?.deny !== undefined || call.tool === 'mcp__lanes__send') return done
+    // a lane's report or notes main reads are the lanes' work coming back, not work main took on
+    if (call.tool === 'Read' && typeof call.file_path === 'string' && isLanesFile(call.file_path)) return done
     try {
       const use = useOf(call.tool, result?.isReadOnly === true)
       if (use === undefined) return done
@@ -1787,7 +1930,7 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: 'mcp__lanes__stop' }, async ($, e) => {
     const which = (e as unknown as { lane?: string }).lane
 
-    return { result: await runScript($, 'stop', which === 'mid' || which === 'low' ? which : 'all') }
+    return { result: await stopLanes($, which === 'mid' || which === 'low' ? which : 'all') }
   }).catch(failed)
 
   on('command.run', { command: 'lane' }, async ($, e) => {
@@ -1800,7 +1943,7 @@ export const register: Register = (on, options) => {
       case 'usage':
         return { text: await spendReport($, cmd.all) }
       case 'run':
-        return { text: await runScript($, cmd.verb, cmd.which) }
+        return { text: cmd.verb === 'stop' ? await stopLanes($, cmd.which) : await runScript($, cmd.verb, cmd.which) }
       case 'send':
         return { text: await dispatch($, cmd.lane, cmd.task) }
       case 'hint':

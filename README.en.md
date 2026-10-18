@@ -32,10 +32,11 @@ The lanes split the work **by what each model is good at**.
 
 - A lane **opens when you hand it work** and closes itself after 20 idle minutes.
 - A lane answers in four lines at most. The full report goes to `.claude/lanes/out/T<n>.md`.
-- Work handed to a busy lane waits in its queue and goes over as soon as the task before it is done.
+- A lane takes **one task at a time, in the order sent**. Work handed to a busy lane waits in its queue and goes over as soon as the task before it is done. Main splits an hour-long playtest or a full review into one case or area per task, so something urgent can get in between.
+- For a task that will run past 30 minutes, the lane sends its estimate first and a progress line every 10 minutes. They don't wake main; `/lane status` shows them, with the task's requests and cost so far.
 - What the lanes map (where things are, lists of files) builds up in `.claude/lanes/notes/`, so nobody searches twice.
 - Main decides what goes to a lane **before** it starts a piece of work. Reading several files it won't change, surveying code, a folder or the web, running a build or tests and reading the output, digging through logs and checking its own change go to a lane first, and main carries on with its part. Reading the code it is about to change, and a question a file or two answers, stay main's.
-- If main still reads over 20k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only (you don't see it), that such work can go to a lane. The threshold is in `/config`.
+- If main still reads over 20k tokens of lookups and command output itself since its last hand-off, the next tool result carries a short note, for main only (you don't see it), that such work can go to a lane. When main carries on without handing off (its own fix-and-run loop, say), the next note waits for twice as much, and a hand-off brings it back. Reading a lane's reports and notes doesn't count. The threshold is in `/config`.
 - The fallbacks are all 5.x too. **A lane never runs on Sonnet 4 or Haiku 4**: set in the config they give way to the default, and where no 5.x model is to be had a lane fails rather than drop to an older one.
 
 ## For everyone, at every stage
@@ -77,11 +78,14 @@ A subagent takes a job, hands back one answer and is gone. A lane is **a session
 - **Ledger**: `/lane tasks`
 
 ```
-lane tasks in this project, newest first (2 of 2)
-  T2    mid  open       3m    $0.01 (on main $0.20)  run the tests
+lane tasks in this project, newest first (3 of 3)
+  T3    mid  STOPPED    1m    $0.01 (on main $0.20)  play case 6
+  T2    low  open       3m    $0.01 (on main $0.20)  run the tests
   T1    low  DONE       1m    $0.01 (on main $0.20)  count the files
-all 2 tasks: $0.02, on opus-5-5 $0.40. A sub-task (T7a) is counted on its own row.
+all 3 tasks: $0.03, on opus-5-5 $0.60. A sub-task (T7a) is counted on its own row.
 ```
+
+`STOPPED` is a task that ended with no answer: the lane was stopped, closed mid-task, or dropped it for a newer one. Its time runs to its last request.
 
 ## Better together
 
@@ -201,11 +205,11 @@ When Claude Code runs on Amazon Bedrock, Google Vertex AI or Microsoft Foundry (
 
 ```
 /lane <what you want done>    main splits it up and sees it through
-/lane status                  lanes, tasks you can follow up on, latest reports, today's lane spend
+/lane status                  lanes, how far the running tasks have got, tasks you can follow up on, latest reports, today's lane spend
 /lane tasks                   the ledger: how each task ended, how long it took, what it cost
 /lane usage [all]             spend today (all: since logging began), the saving against Opus, what main did itself
 /lane mid <task>              hand a task straight to the mid lane (low works the same)
-/lane start | stop [mid|low]  open ahead of time, or close
+/lane start | stop [mid|low]  open ahead of time, or close (closing drops the waiting tasks, and names them)
 /lane help                    the list of commands
 ```
 
@@ -267,6 +271,9 @@ lanes  sonnet ● T3 2m +1 · haiku ○
   - macOS, Linux: `LANES_PROJECT=<project folder> bash lanes/bin/lanes.sh start`
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` in `settings.json` forces every subagent onto that model, so the lanes hand work to the low lane rather than to subagents.
 - On Linux lanes open in the background. Watch one with `claude attach <lane name>` (`/lane status` shows the names).
+- Work handed to a lane that is closing (one held at its exit prompt included) goes to a fresh lane: that session is closed and a new one opens. Before 0.3.11 such work could be lost.
+- Lanes keep browser profiles and screenshots in their own temp folder and close the processes they started when a task ends. If old `*.png` and `*.log` files still pile up in `.claude/lanes/out/`, delete them; keep the reports (`T<n>.md`).
+- A `notes/index.md` written before 0.3.1 has no seal, so it isn't loaded into main's prompt. Have a lane write it again once (with Write) and it is.
 
 **Install from a local folder · development**
 ```
