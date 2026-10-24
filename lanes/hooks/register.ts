@@ -100,6 +100,8 @@ type Spend = {
   /** main only: its own tool calls by kind, and how many characters of output its lookups and commands brought into its context */
   uses?: Partial<Record<Use, number>>
   took?: number
+  /** main only: what its own subagents (the Agent tool) took of it, and the part of that on main's model */
+  sub?: { calls: number; cost: number; onMainModel: number }
 }
 /** one role's spend in this project per local day ("2026-10-11"), in dollars at API list prices */
 type SpendLog = Record<string, Spend>
@@ -437,16 +439,21 @@ const dayOf = (ms: number) => {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-// What one request cost on a model, or undefined for a model without a known price.
-function price(model: string, u: Usage): number | undefined {
+// What one request cost on a model, or undefined for a model without a known price. A subagent's
+// request writes the 5-minute cache, at 1.25× input on every model, where a session's own writes
+// the 1-hour one: the session logs say so per request (a usage here doesn't), all but every time.
+function price(model: string, u: Usage, isSubagent = false): number | undefined {
   const hit = PRICES.find(([re]) => re.test(model))
   if (hit === undefined) return undefined
   const write = u.cache_creation_input_tokens ?? 0
   const prompt = u.input_tokens + write + u.cache_read_input_tokens
-  const [input, cacheWrite, cacheRead, output] = (prompt > 100_000 ? hit[2] : undefined) ?? hit[1]
+  const [input, hourWrite, cacheRead, output] = (prompt > 100_000 ? hit[2] : undefined) ?? hit[1]
+  const cacheWrite = isSubagent ? input * 1.25 : hourWrite
 
   return (u.input_tokens * input + write * cacheWrite + u.cache_read_input_tokens * cacheRead + u.output_tokens * output) / 1e6
 }
+
+const samePrice = (a: string, b: string) => PRICES.find(([re]) => re.test(a)) === PRICES.find(([re]) => re.test(b))
 
 const noSpend = (): Spend => ({ calls: 0, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 0, onMain: 0 })
 
@@ -464,6 +471,15 @@ function addSpend(a: Spend, b: Spend): Spend {
     onMain: a.onMain + b.onMain,
     uses: Object.fromEntries(USES.map(u => [u, (a.uses?.[u] ?? 0) + (b.uses?.[u] ?? 0)])),
     took: (a.took ?? 0) + (b.took ?? 0),
+    ...(a.sub === undefined && b.sub === undefined
+      ? {}
+      : {
+          sub: {
+            calls: (a.sub?.calls ?? 0) + (b.sub?.calls ?? 0),
+            cost: (a.sub?.cost ?? 0) + (b.sub?.cost ?? 0),
+            onMainModel: (a.sub?.onMainModel ?? 0) + (b.sub?.onMainModel ?? 0),
+          },
+        }),
   }
 }
 
@@ -523,7 +539,10 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   const day = dayOf(now)
   // A gateway can answer under a name of its own (a Bedrock application inference profile's
   // ARN, a deployment alias): the request is then priced by the model it asked for.
-  const cost = price(usage.model, usage) ?? price(asked, usage)
+  const isSubagent = agentId !== undefined
+  const model = PRICES.some(([re]) => re.test(usage.model)) ? usage.model : asked
+  const cost = price(model, usage, isSubagent)
+  const onMain = price(cfg.main.model, usage, isSubagent) ?? cost ?? 0
   const s = (spend[day] ??= noSpend())
   s.calls += 1
   s.unpriced += cost === undefined ? 1 : 0
@@ -532,7 +551,13 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   s.cacheRead += usage.cache_read_input_tokens
   s.output += usage.output_tokens
   s.cost += cost ?? 0
-  s.onMain += price(cfg.main.model, usage) ?? cost ?? 0
+  s.onMain += onMain
+  if (role === 'main' && isSubagent) {
+    const sub = (s.sub ??= { calls: 0, cost: 0, onMainModel: 0 })
+    sub.calls += 1
+    sub.cost += cost ?? 0
+    sub.onMainModel += samePrice(model, cfg.main.model) ? (cost ?? 0) : 0
+  }
   await saveSpend($, role)
   if (role === 'main' && agentId === undefined) await carryStep($, prompt)
   // a lane's tokens so far, for /lane status while it works
@@ -543,7 +568,7 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   entry.last = now
   entry.calls += 1
   entry.cost += cost ?? 0
-  entry.onMain += price(cfg.main.model, usage) ?? cost ?? 0
+  entry.onMain += onMain
   if (agentId === undefined) {
     entry.grown = readOf(entry) + Math.max(0, prompt - (entry.lastPrompt ?? prompt))
     entry.firstPrompt ??= prompt
@@ -854,7 +879,16 @@ async function savings($: EngineInterface, lanes: Spend, total: Spend, day: stri
 function ownWork(main: Spend) {
   const u = main.uses ?? {}
   const n = (use: Use) => u[use] ?? 0
-  if (USES.every(use => n(use) === 0)) return []
+  // main's subagents on its own model: the lanes' kind of work, at main's price and with a short cache
+  const gap = cheaper(cfg.mid.model, cfg.main.model)
+  const subs =
+    (main.sub?.onMainModel ?? 0) >= 1
+      ? [
+          `  Its subagents ran on ${modelLabel(cfg.main.model)} unless given another model, and their cache lapses after 5 idle minutes (a session's lasts an hour), so a long wait makes them write their context again.`,
+          `  Long side work is cheaper in the mid lane${gap === undefined ? '' : ` (${modelLabel(cfg.mid.model)} costs ${gap} of ${modelLabel(cfg.main.model)} per token)`}; a subagent that writes or builds can be given a model that fits it.`,
+        ]
+      : []
+  if (USES.every(use => n(use) === 0)) return subs.length === 0 ? [] : ['what main did itself', ...subs]
   const many = (use: Use, word: string) => `${n(use)} ${word}${n(use) === 1 ? '' : 's'}`
   const reads = [many('look', 'lookup'), many('command', 'other command'), ...(n('browse') > 0 ? [many('browse', 'browser step')] : [])]
   const parts = [
@@ -865,7 +899,7 @@ function ownWork(main: Spend) {
     `${many('handoff', 'hand-off')} to the lanes`,
   ].filter(Boolean)
 
-  return ['what main did itself', `  ${parts.join('; ')}.`, '  Lookups, logs and runs are lane work: what main reads, each later request of its own reads again.']
+  return ['what main did itself', `  ${parts.join('; ')}.`, '  Lookups, logs and runs are lane work: what main reads, each later request of its own reads again.', ...subs]
 }
 
 async function spendReport($: EngineInterface, all: boolean) {
@@ -899,13 +933,17 @@ async function spendReport($: EngineInterface, all: boolean) {
     `lane spend ${all ? `${days[0]} to ${days[days.length - 1]}` : `today (${today})`}, at API list prices`,
     // main's own subagents on a cheaper model save too: shown on its row, not counted as the lanes'
     row('main', short('main'), main, main.onMain - main.cost >= 0.005),
+    ...(main.sub === undefined || main.sub.calls === 0
+      ? []
+      : [`  ${''.padEnd(6)}${'subagents'.padEnd(14)}${String(main.sub.calls).padStart(6)} calls ${$$(main.sub.cost).padStart(9)}   in main's row, ${$$(main.sub.onMainModel)} of it on ${short('main')}`]),
     ...TIERS.map(t => row(t, short(t), by.get(t) ?? noSpend(), true)),
     row('lanes', '', lanes, true),
     row('all', '', total, true),
     ...(lanes.calls > 0 ? await savings($, lanes, total, all ? undefined : today) : []),
     ...ownWork(main),
-    `Every model request of the main and lane sessions here, subagents included, priced per request with 1-hour cache writes`,
-    `(platform.claude.com/docs/en/about-claude/pricing). A plan isn't billed per token, but its usage limits weigh the models much the same way.${unpriced}`,
+    `Every model request of the main and lane sessions here, subagents included, priced per request with 1-hour cache writes, 5-minute ones for`,
+    `main's subagents (before 0.3.12 those were priced at the 1-hour rate and not counted apart) (platform.claude.com/docs/en/about-claude/pricing).`,
+    `A plan isn't billed per token, but its usage limits weigh the models much the same way.${unpriced}`,
   ].join('\n')
 }
 
@@ -1018,7 +1056,7 @@ function policy() {
     STYLE_POLICY[cfg.style],
     "Decide what goes to a lane before you start a piece of work, not partway through it. A lane's: reading several files you won't change, surveying a codebase, a folder or the web, running a build or a test suite and reading its output, digging through logs, checking a change you made. Send it first and work on your part while it runs. Yours: reading the code you are about to change, and a question a file or two answers.",
     'A lane takes one task at a time, in the order sent, and a playtest or a full review can run an hour: split such work into one case or one area per task, so something urgent can get in between. Before an urgent hand-off, check mcp__lanes__status for what the lane is on.',
-    'A short one-off lookup can still go to a subagent, and any token-saving or delegating skill or plugin the person has works alongside the lanes: keep the lanes for work that runs longer, builds on earlier work, or should outlive this session.',
+    'A short one-off lookup can still go to a subagent, and any token-saving or delegating skill or plugin the person has works alongside the lanes: keep the lanes for work that runs longer, builds on earlier work, or should outlive this session. A subagent runs on your model unless you give it another (a fork always does), and its cache lapses after 5 idle minutes where yours and a lane\'s last an hour, so one that waits on builds or renders writes its whole context again. Give a subagent that writes or builds the model the work needs, and hand long side work to a lane.',
     'Only you edit code and content, commit, push and deploy. Hand a lane work that would otherwise fill your context: mcp__lanes__send({ lane, task }) gives it a task id and a report file and opens the lane if it is closed. The lane answers in a few lines as a message; read its full report in .claude/lanes/out/<id>.md only when the answer is not enough. Shared notes live in .claude/lanes/notes/. mcp__lanes__status shows what each lane is doing; never message a lane just to ask.',
     'A lane outlives your context: it keeps what it found after you compact, clear or restart. mcp__lanes__status lists the tasks a lane still holds in context; for more on one of them, send that lane "(follow-up to T7) <what>" instead of explaining again.',
     ...(placeNote() === '' ? [] : ['', `${placeNote()}\nTell the person this in your first reply, once, with the command as it is.`]),

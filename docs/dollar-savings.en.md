@@ -2,7 +2,7 @@
 
 # What lanes actually saves
 
-**Measured on four projects, on one day across four projects, and the same tasks run on three models**
+**Measured on four projects, on one day, four days and five more across several, and the same tasks run on three models**
 
 [한국어](dollar-savings.md) · **English** · [Back to the README](../README.en.md)
 
@@ -30,6 +30,8 @@
 - **Why the projects differ:** on the game, the lanes ran long playtests and regression runs (mid: 213 minutes). On the plugin, main spent most of the time changing the code itself and gave the lanes seven reviews and lookups. The planning session was short, so main's share was large, but the low lane did the web research at 3% of Opus's price, so the lanes' share saved 63%. On the web service, main did nearly all the work itself (2 lane tasks). **The more side work goes to the lanes, the more they save.**
 - **Saved in main's context (estimate)** is what main's later requests would have read again had main read the lanes' material itself. It is an estimate, not a measurement, so it isn't in the saving. How it's worked out is [below](#saved-in-mains-context-estimate).
 - **A whole day looks much the same.** Over Oct 14, four projects (one of them project 1's web game) went from $197.79 to $152.73, 23% saved. It's [below](#one-working-day-oct-14).
+- **So do four days.** Over Oct 15–18, five projects went from $724.55 to $601.64, 17% saved (56% on the lanes' share alone): 23% on the web game, which handed off the most, and 9–12% on the other four. It's [below](#four-days-of-real-use-oct-1518).
+- **Hand work to Opus subagents and the saving shrinks.** Over the next stretch, Oct 18 evening to Oct 23, six projects went from $1,928.91 to $1,804.92, only 6% saved: over half the spend (≈$977.53) was subagents main started with the Agent tool on one project, all but two of them on Opus. From 0.3.12 `/lane usage` shows that share on its own line. The two stretches together, nine days, went from $2,653.46 to $2,406.56, 9%. It's [below](#five-more-days-oct-18-evening-to-oct-23).
 - **On a subscription (Pro, Max)** the bill doesn't change, but usage limits are drawn down by model price too, so the same limit stretches about 1.3× further.
 
 ## Project 1 · a web game
@@ -162,6 +164,68 @@ Each project above is one session. This time it's a whole day: the four projects
 - **Saved in main's context is counted the fixed way (0.3.9).** That day `/lane usage` still counted it the old way and showed ≈$2.60, ≈$4.27, ≈$1.83 and ≈$0.26. The table works it out again from the session logs, up to the moment `/lane usage` was run in each project. On the web game the lane read 100k–370k tokens a task; with the fill size taken from where main was compacted that day, had main read that itself, its conversation would have filled at once and been compacted, so it counts as 0 ([below](#saved-in-mains-context-estimate)).
 - **Checking the figures found a bug.** On the web game, `/lane usage`'s "all" row saved $0.44 more ($34.21) than its lanes row ($33.77). That was main's own code-review subagent (Sonnet 5.5, 8 requests): its saving didn't show on main's row and was counted as the lanes' in "the lanes saved". From 0.3.9 it shows on main's row and stays out of the lanes' saving. The table above counts main's subagents at what they cost too, as for project 2. The same day's figures also showed two gaps in the main's-context estimate, now fixed (below).
 
+## Four days of real use: Oct 15–18
+
+A longer stretch as well: the five projects worked on with the lanes on this PC from Oct 15, midnight, to Oct 18, 5 pm. The web game (project 1), the OCR model and blog automation were there on Oct 14 too; two are new. The figures are what the lanes logged per day in each project (what `/lane usage` shows), checked against the session logs. This repo's sessions, where the lanes plugin itself was being fixed, are left out.
+
+<p align="center"><img src="en/period.svg" width="880" alt="Oct 15-18, four days, five projects: all on Opus 724.55 dollars, with lanes 601.64 dollars, 122.91 dollars (17%) saved. Blog automation 46.15 to 41.18 dollars, 11%; a CI dashboard 61.00 to 54.85 dollars, 10%; an OCR model 93.27 to 84.94 dollars, 9%; an event-page collector 139.67 to 123.49 dollars, 12%; the web game (project 1) 384.46 to 297.18 dollars, 23%, about 114.99 dollars of it main's subagents"></p>
+
+| | Blog automation | A CI dashboard | An OCR model | An event-page collector | The web game (project 1) | All five |
+|---|---:|---:|---:|---:|---:|---:|
+| main (Opus 5.5) | $39.01 · 498 | $50.18 · 404 | $77.97 · 946 | $116.26 · 1,173 | $222.26 · 2,223 | $505.68 |
+| Of it, main's subagents (estimate) | — | — | — | — | ≈$114.99 | ≈$114.99 |
+| mid lane (Sonnet 5.5) | $2.08 · 54 | $4.61 · 132 | $6.84 · 89 | $6.66 · 151 | $74.20 · 2,987 | $94.40 |
+| low lane (Haiku 5.5) | $0.09 · 32 | $0.06 · 28 | $0.14 · 4 | $0.56 · 136 | $0.71 · 153 | $1.56 |
+| All on Opus | $46.15 | $61.00 | $93.27 | $139.67 | $384.46 | $724.55 |
+| With lanes | $41.18 | $54.85 | $84.94 | $123.49 | $297.18 | $601.64 |
+| **Saved** | **−$4.97 (11%)** | **−$6.15 (10%)** | **−$8.33 (9%)** | **−$16.18 (12%)** | **−$87.28 (23%)** | **−$122.91 (17%)** |
+| On the lanes' share alone | 70% | 57% | 54% | 65% | 54% | 56% |
+| Lane tasks | 5 | 5 | 7 | 14 | 28 | 59 |
+| Time at work, main / lanes | 144 / 21 min | 171 / 42 min | 272 / 27 min | 392 / 103 min | 407 / 758 min | 1,386 / 951 min |
+| Lookups and commands main ran itself | 414 | 356 | 823 | 1,094 | 1,180 | 3,867 |
+| Saved in main's context (estimate) | ≈$1.28 | ≈$2.19 | ≈$0.24 | ≈$4.11 | ≈$13.45 | ≈$21.27 |
+| Together with that | ≈14% | ≈14% | ≈9% | ≈15% | ≈26% | ≈20% |
+
+(The figures after a cost are requests.)
+
+- **71% of the saving came from the web game,** $70.48 of it on the 18th alone. That day the mid lane played the game as a first-time player in several languages, one to two hours a run: work worth $124.38 on Opus, done for $62.19 (2,533 requests). Days without the lanes (the web game on the 15th and 16th, the OCR model on the 18th) saved nothing.
+- **Most of the money is main's own.** Of the $601.64 spent, $505.68 (84%) was main. Main ran 3,867 lookups and commands and made 762 edits itself, against 59 lane tasks: about 65 lookups and commands of main's per lane task. The four projects that handed off less saved 9–12%, as on Oct 14.
+- **Main's subagents ran on Opus.** On the web game, the 15 subagents main started (866 requests) ran on main's model, Opus, for about $115 (main's $222.26 less the $107.27 in main's own log, an estimate): about 1.5 times what the whole mid lane cost ($74.20). The event-page collector ran its subagents on Sonnet and saved $2.55 (the table's main is what it cost; that share is in "All on Opus"). Long-running work is cheaper handed to a lane than to a subagent.
+- **Saved in main's context is largest on the web game (≈$13.45),** mostly from small low-lane tasks. A mid playtest read 120k–560k tokens at once, more than the room left in main, so it counts as 0, as on Oct 14 ([below](#saved-in-mains-context-estimate)).
+- **Subagents' cache writes are priced again at the 5-minute rate.** Main and the lanes write the 1-hour cache, but subagents write the 5-minute one (the session logs say which, request by request). The lanes then priced every write at the 1-hour rate, which put the web game's main $28.79 too high; the table takes that off. The saving is the same; only the share moves, from 16% to 17%. From 0.3.12 the lanes price it at the 5-minute rate too.
+- **Checked:** for the lanes, and for main outside the web game, the lanes' logs and the session logs agree on request counts and cost. Only the web game's main shows fewer output tokens in the session logs, with requests and input and cache tokens the same: 587 of its subagents' requests have no final usage in their logs. So the table uses what the lanes counted request by request. The event-page collector's main differs by 0.4% for the same reason. The 18th is counted until 5 pm, and a session started before midnight on the 15th from that moment.
+- **0.3.11 came out of these four days.** Going through the lanes' task logs found a task lost to a lane that was closing, five tasks left "open" for days after a stop or a lane closing mid-task, and `/lane status` showing no progress through an hour-long playtest; all three are fixed.
+
+## Five more days: Oct 18 evening to Oct 23
+
+Then from Oct 18, 5 pm, to Oct 24, midnight: the six projects worked on with the lanes on this PC. Blog automation, the event-page collector and the OCR model were there in the four days before; three are new. The web game rested. Counted the same way as the four days.
+
+<p align="center"><img src="en/period2.svg" width="880" alt="Oct 18, 5 pm to Oct 24, midnight, six projects: all on Opus 1928.91 dollars, with lanes 1804.92 dollars, 123.99 dollars (6%) saved. Regulation research 8.18 to 6.65 dollars, 19%; work automation 47.88 to 42.24 dollars, 12%; an event-page collector 75.83 to 72.67 dollars, 4%; an OCR model 80.49 to 66.54 dollars, 17%; blog automation 200.37 to 192.19 dollars, 4%; a 3D web service 1516.16 to 1424.63 dollars, 6%, about 977.53 dollars of it main's subagents"></p>
+
+| | Regulation research | Work automation | An event-page collector | An OCR model | Blog automation | A 3D web service | All six |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| main (Opus 5.5) | $5.12 · 66 | $36.60 · 323 | $69.52 · 712 | $57.47 · 617 | $184.02 · 1,908 | $1,344.21 · 13,435 | $1,696.94 |
+| Of it, main's subagents (estimate) | — | — | — | — | — | ≈$977.53 | ≈$977.53 |
+| mid lane (Sonnet 5.5) | $1.53 · 39 | $5.64 · 102 | $3.16 · 57 | $8.24 · 89 | $8.17 · 170 | $80.04 · 1,994 | $106.78 |
+| low lane (Haiku 5.5) | — | — | — | $0.83 · 10 | — | $0.38 · 61 | $1.20 |
+| All on Opus | $8.18 | $47.88 | $75.83 | $80.49 | $200.37 | $1,516.16 | $1,928.91 |
+| With lanes | $6.65 | $42.24 | $72.67 | $66.54 | $192.19 | $1,424.63 | $1,804.92 |
+| **Saved** | **−$1.53 (19%)** | **−$5.64 (12%)** | **−$3.16 (4%)** | **−$13.95 (17%)** | **−$8.18 (4%)** | **−$91.53 (6%)** | **−$123.99 (6%)** |
+| On the lanes' share alone | 50% | 50% | 50% | 61% | 50% | 52% | 52% |
+| Lane tasks | 1 | 6 | 3 | 6 | 9 | 50 | 75 |
+| Time at work, main / lanes | 22 / 9 min | 183 / 61 min | 345 / 22 min | 183 / 32 min | 755 / 67 min | 1,406 / 804 min | 2,894 / 995 min |
+| Lookups and commands main ran itself | 51 | 268 | 631 | 524 | 1,458 | 3,218 | 6,150 |
+| Saved in main's context (estimate) | ≈$0.00 | ≈$0.36 | ≈$1.79 | ≈$0.47 | ≈$7.41 | ≈$15.54 | ≈$25.57 |
+| Together with that | ≈19% | ≈13% | ≈7% | ≈18% | ≈8% | ≈7% | ≈8% |
+
+- **The saving fell to 6%.** Of the $1,804.92 spent, $1,424.63 (79%) was the 3D web service, and ≈$977.53 of that was subagents main started with the Agent tool. Ten of the twelve ran on main's model, Opus: one building a 3D scene made 5,316 requests over three days, then ones building characters, staging scenes, fixing security findings, and four researching a timeline. Only two reviewers (83 requests) ran on Sonnet. The lanes did 6% of what that project spent. Leave it out and the same stretch went from $412.75 to $380.29, 8%.
+- **A subagent's cache lasts 5 minutes.** Main's and the lanes' cache lasts an hour; a subagent's is gone after 5 idle minutes. On the 3D web service, after 10 to 60 idle minutes main and the lanes wrote their cache again on 0 of 82 requests, the subagents on 11 of 15 (73%); after 5 to 10 minutes the subagents still did on 46%. Waiting on a build or a render, a subagent writes its whole 300k–400k-token context again: 25 such writes of over 100k tokens after 5 to 60 idle minutes came to ≈$40.
+- **The lanes saved as much as ever.** On the lanes' share alone it is 52%, close to the four days before (56%), and the day the lanes took the most (the 23rd, 21 tasks) saved 18%. What fell is the share the lanes took: main ran 6,150 lookups and commands itself, against 75 lane tasks.
+- **Building isn't lane work.** The lanes don't change files, so the subagents that built the 3D scene or the characters had work no lane could take. There the fix is giving the subagent a model that fits the work (on Sonnet, half the price). Research and write-ups, like the timeline, can go to a lane.
+- **What 0.3.12 changes:** `/lane usage` shows main's subagents on a line of their own (requests, cost, and the part on main's model), and when over a dollar of it ran on main's model, adds that their 5-minute cache makes a long wait write their context again and that long side work is cheaper in the mid lane (1/2 per token). Main's instructions now say that a subagent runs on main's model unless given another and keeps its cache for 5 minutes, so one that writes or builds gets the model the work needs, and long side work goes to a lane. Subagents' cache writes are priced at the 5-minute rate (1.25× input). Before, the 1-hour rate put the 3D web service's main $116.70 too high over this stretch; the table takes that off.
+- **No task was lost from a lane ledger.** Of the 75 lane tasks, 5 ended STOPPED ($3.61), three of them the same measurement run while the user was playing a game. Regulation research's T3 stays "open" because its lane session ended mid-task; it closes as STOPPED when that lane next opens (0.3.11). One task sent at 17:46 on the 18th (this repo's T27), from sessions opened before 0.3.11 was written, went to a lane held at its exit prompt and was lost: the very case 0.3.11 fixes.
+- **Checked:** only the 3D web service's main comes out lower from the session logs. Requests and input and cache tokens agree, but 7,338 of its subagents' 9,753 requests have no final usage in their logs, so their output tokens go missing; the table uses what the lanes counted request by request. The other five projects and the lanes agree on requests and cost. `session-stats.mjs` is fixed this time: it reads a log too big for one string in pieces, prices subagents' cache writes at the 5-minute rate, and counts a subagent's requests after its main session ended (71 here).
+
 ## Saved in main's context (estimate)
 
 The files, logs and search results the lanes read never pile up in main's conversation. Had main read them itself, each of its later requests would have read them again from the cache (Opus 5.5 cache reads, $0.20 per million tokens). The saving above counts only the price gap, so this part isn't in it. It is estimated here from the session logs.
@@ -223,14 +287,16 @@ Three tasks of the kind lanes take, each run three times on main's settings (Opu
 - **The data:** the session logs Claude Code keeps (`~/.claude/projects/<project>/<session>.jsonl`). Each model request has its model and tokens (input, cache write, cache read, output). A request logged over several lines counts once, by message id.
 - **What counts as a lane:** the named lane sessions only (`<project>-mid`, `<project>-low`, and project 1's earlier names `gaze-sonnet` and `gaze-haiku`). Unnamed one-off calls other tools made (conversation summaries and the like) are left out.
 - **A gateway's model names:** project 3's session logs carry a Bedrock application inference profile's ARN instead of a model name, so a request whose name a lane's requests also carry is priced at that lane's model (mid Sonnet 5.5, low Haiku 5.5), and any other at its session's model (main Opus 5.5). Main's 7 requests while it was switched to Sonnet carry the mid lane's name, so they are priced as Sonnet 5.5. The script's `pricedByLaneName` (37) and `pricedBySession` (13) count those requests. The ARNs are removed from the published raw results.
-- **Prices:** Claude API list prices, the same as the plugin's price table, checked against the official pricing page (T6). Cache writes at the 1-hour rate.
+- **Prices:** Claude API list prices, the same as the plugin's price table, checked against the official pricing page (T6).
 
-  | Per million tokens | Input | Cache write | Cache read | Output |
-  |---|---:|---:|---:|---:|
-  | Opus 5.5 | $4 | $8 | $0.20 | $20 |
-  | Sonnet 5.5 | $2 | $4 | $0.10 | $10 |
-  | Haiku 5.5 (prompt up to 100k tokens) | $0.10 | $0.20 | $0.01 | $0.50 |
-  | Haiku 5.5 (over 100k) | $0.50 | $1 | $0.05 | $2.50 |
+  | Per million tokens | Input | Cache write (1 hour) | Cache write (5 minutes) | Cache read | Output |
+  |---|---:|---:|---:|---:|---:|
+  | Opus 5.5 | $4 | $8 | $5 | $0.20 | $20 |
+  | Sonnet 5.5 | $2 | $4 | $2.50 | $0.10 | $10 |
+  | Haiku 5.5 (prompt up to 100k tokens) | $0.10 | $0.20 | $0.125 | $0.01 | $0.50 |
+  | Haiku 5.5 (over 100k) | $0.50 | $1 | $0.625 | $0.05 | $2.50 |
+
+  Main and the lanes write the 1-hour cache, and the subagents main starts the 5-minute one (the session logs say which, request by request). In this PC's logs from Oct 11 to 24 (54,426 requests), every subagent cache write was a 5-minute one and every lane's a 1-hour one; main wrote the 5-minute cache on only 35 requests. So subagents' cache writes are priced at the 5-minute rate (and by the lanes too, from 0.3.12).
 
 - **Cross-checks:** for project 1, the README has what `/lane usage` showed that day (all on Opus $106.05, with lanes $70.61; 468, 767 and 147 calls). Recomputed from the session logs it is $106.13 and $70.64 (468, 769 and 147 calls), within 0.1%. For project 2, the lane ledger ($4.46, $13.09 on Opus) matches the session logs ($4.47, $13.09). For project 3, the lanes' share `/lane usage` priced again from token totals ($1.36, $3.71 on Opus) matches the session logs. `/lane usage` counted main at 17 calls and $2.74, under the session logs' 20 and $3.21: before the project's first lane, main's log lived only in memory, so a plugin reload in that time dropped it (fixed in 0.3.6). The tables use the session logs. For project 4, what `/lane usage` showed (main 427 calls $45.75, mid 37 calls $1.87) matches the session logs.
 - **Measure it yourself:** the scripts and the raw results are in [`measure/`](measure/).

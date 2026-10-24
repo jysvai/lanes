@@ -30,8 +30,8 @@ function ground(on: On, files: Record<string, string>, env: Record<string, strin
   })
 }
 
-async function request($: Engine, model: string) {
-  const stream = $.turn.step({ turnId: 't1', index: 0, model, effort: 'high', messageCount: 3 })
+async function request($: Engine, model: string, agentId?: string) {
+  const stream = $.turn.step({ turnId: 't1', index: 0, model, effort: 'high', messageCount: 3, ...(agentId === undefined ? {} : { agentId }) })
   for await (const _ of stream) {
     // drain
   }
@@ -163,6 +163,60 @@ test("main's own subagents on a cheaper model show their saving on main's row, a
   expect(ran).toContain('  main  opus-5-5         323 calls    $23.87   on opus-5-5 $24.31  saved $0.44 (2%)')
   expect(ran).toContain('  lanes                 1360 calls    $33.77   on opus-5-5 $67.54  saved $33.77 (50%)')
   expect(ran).toContain('  all                   1683 calls    $57.64   on opus-5-5 $91.85  saved $34.21 (37%)')
+})
+
+test("main's subagents show on a line of their own, their cache writes at the 5-minute price", async ($, on) => {
+  const files: Record<string, string> = {}
+  // a million tokens written to the cache: $8 on Opus 5.5 for the 1-hour cache a session writes,
+  // $5 for the 5-minute one a subagent writes; $2.50 on Sonnet 5.5
+  const answers = ['claude-opus-5-5', 'claude-opus-5-5', 'claude-sonnet-5-5']
+  let n = 0
+  ground(on, files, {}, () => ({ model: answers[n++] ?? 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 0, output_tokens: 0 }))
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  await request($, 'claude-opus-5-5', 'agent-1')
+  await request($, 'claude-sonnet-5-5', 'agent-2')
+  const ran = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text
+
+  // the Sonnet subagent saved $2.50 against the same request on Opus
+  expect(ran).toContain('  main  opus-5-5           3 calls    $15.50   on opus-5-5 $18.00  saved $2.50 (14%)')
+  expect(ran).toContain("        subagents          2 calls     $7.50   in main's row, $5.00 of it on opus-5-5")
+  expect(ran).toContain('  Its subagents ran on opus-5-5 unless given another model, and their cache lapses after 5 idle minutes')
+  expect(ran).toContain('  Long side work is cheaper in the mid lane (sonnet-5-5 costs 1/2 of opus-5-5 per token)')
+})
+
+test('a subagent or two on main\'s model, or none, gets no subagent note', async ($, on) => {
+  const files: Record<string, string> = {}
+  const answers = ['claude-sonnet-5-5', 'claude-opus-5-5']
+  let n = 0
+  ground(on, files, {}, () => ({ model: answers[n++] ?? 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 100_000, cache_read_input_tokens: 0, output_tokens: 0 }))
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-sonnet-5-5', 'agent-1')
+  expect((await $.command.run({ command: 'lane', args: 'usage' } as never)).text).toContain("        subagents          1 calls     $0.25   in main's row, $0.00 of it on opus-5-5")
+  // $0.50 on Opus: under the dollar the note waits for
+  await request($, 'claude-opus-5-5', 'agent-2')
+  const ran = (await $.command.run({ command: 'lane', args: 'usage' } as never)).text
+
+  expect(ran).toContain("        subagents          2 calls     $0.75   in main's row, $0.50 of it on opus-5-5")
+  expect(ran).not.toContain('Its subagents ran on')
+})
+
+test('/lane usage all adds up main\'s subagents over the days that counted them apart', async ($, on) => {
+  const old = '1970-01-01' === today ? '1969-12-31' : '1970-01-01'
+  const files: Record<string, string> = {
+    // a day logged before 0.3.12: no subagent split
+    'C:/work/demo/.claude/lanes/state/main.spend.json': JSON.stringify({
+      [old]: { calls: 10, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 4, onMain: 4 },
+      [today]: { calls: 5, unpriced: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, cost: 6, onMain: 6, sub: { calls: 3, cost: 2, onMainModel: 2 } },
+    }),
+  }
+  ground(on, files, {}, null)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = (await $.command.run({ command: 'lane', args: 'usage all' } as never)).text
+
+  expect(ran).toContain('  main  opus-5-5          15 calls    $10.00')
+  expect(ran).toContain("        subagents          3 calls     $2.00   in main's row, $2.00 of it on opus-5-5")
+  expect(ran).toContain('before 0.3.12 those were priced at the 1-hour rate and not counted apart')
 })
 
 test('a day logged at $0 because a gateway named every model its own way is priced from its tokens', async ($, on) => {

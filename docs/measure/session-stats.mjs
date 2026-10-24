@@ -19,8 +19,9 @@
 // the mid lane's requests carry is Sonnet 5.5's, the low lane's Haiku 5.5's, so main's requests
 // while it was switched to Sonnet are priced as Sonnet (`pricedByLaneName` counts them). Any other
 // is priced as its session's model: Opus 5.5 for main (`pricedBySession` counts them).
-import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
+import { readdirSync, statSync, existsSync, openSync, readSync, closeSync } from 'node:fs'
 import { join } from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
 
 const [dir, mainId, untilIso] = process.argv.slice(2)
 const until = untilIso ? Date.parse(untilIso) : Infinity
@@ -37,21 +38,39 @@ const PRICES = [
   [/haiku-5-5/, [0.1, 0.2, 0.01, 0.5], [0.5, 1, 0.05, 2.5]],
   [/haiku-4-5/, [1, 2, 0.1, 5]],
 ]
+// A write to the 5-minute cache (what a subagent writes; a session writes the 1-hour one) costs
+// 1.25× input on every model; the transcript says per request which one it was.
 function price(model, u) {
   const hit = PRICES.find(([re]) => re.test(model))
   if (!hit) return undefined
   const write = u.cache_creation_input_tokens ?? 0
+  const short = Math.min(write, u.cache_creation?.ephemeral_5m_input_tokens ?? 0)
   const prompt = u.input_tokens + write + (u.cache_read_input_tokens ?? 0)
   const [i, w, r, o] = (prompt > 100_000 ? hit[2] : undefined) ?? hit[1]
 
-  return (u.input_tokens * i + write * w + (u.cache_read_input_tokens ?? 0) * r + u.output_tokens * o) / 1e6
+  return (u.input_tokens * i + short * i * 1.25 + (write - short) * w + (u.cache_read_input_tokens ?? 0) * r + u.output_tokens * o) / 1e6
 }
 
+// read in pieces: a long session's transcript can be larger than one string can hold
 function* jsonl(path) {
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    if (!line.trim()) continue
-    try { yield JSON.parse(line) } catch {}
+  const fd = openSync(path, 'r')
+  const buf = Buffer.alloc(1 << 24)
+  const text = new StringDecoder('utf8')
+  let rest = ''
+  try {
+    for (let n; (n = readSync(fd, buf, 0, buf.length, null)) > 0; ) {
+      const lines = (rest + text.write(buf.subarray(0, n))).split('\n')
+      rest = lines.pop()
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try { yield JSON.parse(line) } catch {}
+      }
+    }
+  } finally {
+    closeSync(fd)
   }
+  rest += text.end()
+  if (rest.trim()) try { yield JSON.parse(rest) } catch {}
 }
 
 // the requests of one transcript file, last record per message id
@@ -90,7 +109,7 @@ const end = Math.min(until, Math.max(...mainReqs.map(r => r.at)))
 const roles = { main: [], 'main subagents': [], mid: [], low: [] }
 roles.main = mainReqs.filter(r => r.at <= end)
 const subDir = join(dir, mainId, 'subagents')
-if (existsSync(subDir)) for (const f of readdirSync(subDir).filter(f => f.endsWith('.jsonl'))) roles['main subagents'].push(...requests(join(subDir, f)).filter(r => r.at >= start && r.at <= end))
+if (existsSync(subDir)) for (const f of readdirSync(subDir).filter(f => f.endsWith('.jsonl'))) roles['main subagents'].push(...requests(join(subDir, f)).filter(r => r.at >= start && r.at <= until))
 for (const f of readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.startsWith(mainId))) {
   const path = join(dir, f)
   if (statSync(path).mtimeMs < start) continue
