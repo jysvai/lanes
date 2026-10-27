@@ -96,6 +96,7 @@ lanes does more **alongside your other savers** than on its own. If you have any
 | **A token saver**: one you built, a tool like Sprag (formerly claude-token-saver), or Claude Code's own `/context` and `/cost` | Watching the cache, the context and usage, and pointing out waste | The lanes take the wasteful work off main, on cheaper models |
 | **Subagents, delegating skills and plugins** | Short one-off lookups | Short jobs go to a subagent, longer or continuing ones to a lane |
 | **lanes** | Side work that runs long, or has to outlive a restart | Main's context gets conclusions only and stays light |
+| **[JYSV HERA](https://github.com/jysvai/JYSV-HERA)**: a project terminal and AI CLI command center | Tabs per project, session memory, usage | In a project registered in HERA, a lane opens as a HERA tab instead of a new window (0.3.13) |
 
 Main starts every session told to send short one-off lookups to a subagent, longer or continuing work to a lane, and to use whatever token-saving or delegating skills and plugins you have alongside them.
 
@@ -239,7 +240,7 @@ lanes  sonnet ● T3 2m +1 · haiku ○
 | mid model · fallback · effort | `claude-sonnet-5-5` · `claude-opus-5-5` · `high` |
 | low model · fallback · effort | `claude-haiku-5-5` · `claude-sonnet-5-5` · `medium` |
 | How you work | `auto` · `developer` · `planner` · `beginner` |
-| How lanes open | `window` (a new window) · `background` (watch with `claude attach <name>`) |
+| How lanes open | `window` (a new window; a HERA tab inside JYSV HERA) · `background` (watch with `claude attach <name>`) |
 | Lane permission mode | `auto` · `acceptEdits` · `dontAsk` · `manual` · `bypassPermissions` |
 | Close when idle | after `20` minutes (0 keeps them open) |
 | Remind main to hand off | after `20000` tokens it read itself (0 never) |

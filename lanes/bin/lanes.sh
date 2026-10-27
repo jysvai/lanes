@@ -47,7 +47,15 @@ launch="${LANES_LAUNCH:-window}"
 permission_mode="${LANES_PERMISSION_MODE:-auto}"
 # how the person works (/config: work style); auto has no block, main reads it from them
 case "${LANES_STYLE:-auto}" in developer|planner|beginner) style="$LANES_STYLE" ;; *) style="auto" ;; esac
-if [ "$(uname -s)" != "Darwin" ]; then launch="background"; fi
+# Inside JYSV HERA (https://github.com/jysvai/JYSV-HERA), which sets HERA_LANES_HOST in its
+# terminals, a lane opens as a HERA tab, on macOS and Linux alike. HERA only does that for
+# a project registered in it; anywhere else it says no and the lane opens as before.
+hera_host() { HERA_HOST_CWD="$project" HERA_HOST_RUN="${2:-}" hera host --lane "$1" ${3:+--check} >/dev/null 2>&1; }
+if [ "$launch" = "window" ] && [ -n "${HERA_LANES_HOST:-}" ] && command -v hera >/dev/null 2>&1 && hera_host mid "" check; then
+  launch="hera"
+elif [ "$(uname -s)" != "Darwin" ]; then
+  launch="background"
+fi
 
 model_of() { case "$1" in mid) echo "${LANES_MID_MODEL:-claude-sonnet-5-5}" ;; *) echo "${LANES_LOW_MODEL:-claude-haiku-5-5}" ;; esac; }
 fallback_of() { case "$1" in mid) echo "${LANES_MID_FALLBACK-claude-opus-5-5}" ;; *) echo "${LANES_LOW_FALLBACK-claude-sonnet-5-5}" ;; esac; }
@@ -112,7 +120,7 @@ start_lane() {
   {
     echo '#!/usr/bin/env bash'
     # the window's title; a background lane has no window, and the escape would land in the output
-    [ "$launch" = "window" ] && printf 'printf "\\033]0;%%s\\007" %s\n' "$(quote "$name")"
+    [ "$launch" != "background" ] && printf 'printf "\\033]0;%%s\\007" %s\n' "$(quote "$name")"
     echo "cd $(quote "$project") || exit 1"
     # a Terminal window starts from a fresh login shell: hand it the claude and the config dir this session uses
     echo "export PATH=$(quote "$PATH")"
@@ -131,14 +139,19 @@ start_lane() {
     printf 'claude'
     for a in "${args[@]}"; do printf ' %s' "$(quote "$a")"; done
     echo
-    if [ "$launch" = "window" ]; then
+    if [ "$launch" != "background" ]; then
       echo 'if [ $(( $(date +%s) - started )) -lt 20 ]; then read -r -p "claude exited early - press Enter to close" _; fi'
     fi
   } > "$tmp"
   chmod +x "$tmp"
   mv -f "$tmp" "$run"
 
-  if [ "$launch" = "window" ]; then
+  if [ "$launch" = "hera" ]; then
+    if ! hera_host "$tier" "$run"; then
+      echo "lanes: JYSV HERA couldn't open a tab for $name. Is HERA still running?" >&2
+      exit 1
+    fi
+  elif [ "$launch" = "window" ]; then
     # Opening the file in Terminal needs no Automation permission, which scripting
     # Terminal with osascript would ask for on the first window and wait on.
     if ! open -a Terminal "$run"; then
@@ -148,7 +161,7 @@ start_lane() {
   else
     /bin/bash "$run"
   fi
-  echo "$name starting ($(model_of "$tier"), effort $(effort_of "$tier")${fallback:+, fallback $fallback})"
+  echo "$name starting$([ "$launch" = "hera" ] && echo ' in a HERA tab') ($(model_of "$tier"), effort $(effort_of "$tier")${fallback:+, fallback $fallback})"
 }
 
 # the processes under a pid (a lane's shells, and the browsers and servers they started), deepest first

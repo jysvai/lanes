@@ -93,6 +93,27 @@ function Write-Prompt($tier) {
   return $file
 }
 
+# Inside JYSV HERA (https://github.com/jysvai/JYSV-HERA), which sets HERA_LANES_HOST in its
+# terminals, a lane opens as a HERA tab instead of a window of its own. HERA only does
+# that for a project registered in it; anywhere else it says no and the window opens.
+function Open-HeraTab($tier, $run) {
+  if (-not $env:HERA_LANES_HOST) { return $false }
+  $hera = Get-Command hera -CommandType Application -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in '.exe', '.cmd', '.bat' } | Select-Object -First 1 -ExpandProperty Source
+  if (-not $hera) { return $false }
+  # the paths go through the environment: hera.cmd would hand & | < > ^ in them to cmd.exe
+  $env:HERA_HOST_CWD = $Project
+  $env:HERA_HOST_RUN = $run
+  try {
+    & $hera host --lane $tier *> $null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  } finally {
+    Remove-Item Env:HERA_HOST_CWD, Env:HERA_HOST_RUN -ErrorAction SilentlyContinue
+  }
+}
+
 function Start-Lane($tier) {
   $name = "$Slug-$tier"
   $peer = Get-Peer $name
@@ -131,12 +152,17 @@ function Start-Lane($tier) {
 
   # Run as a script block, not a file, so a managed PC's execution policy doesn't refuse it.
   $load = "& ([scriptblock]::Create([IO.File]::ReadAllText($(Quote $run), [Text.Encoding]::UTF8)))"
+  $where = ''
   if ($Launch -eq 'window') {
-    Start-Process powershell.exe -WorkingDirectory $Project -ArgumentList "-Command `"$load`"" | Out-Null
+    if (Open-HeraTab $tier $run) {
+      $where = ' in a HERA tab'
+    } else {
+      Start-Process powershell.exe -WorkingDirectory $Project -ArgumentList "-Command `"$load`"" | Out-Null
+    }
   } else {
     & powershell.exe -NoProfile -Command $load
   }
-  return "$name starting ($($c.Model), effort $($c.Effort)$(if ($c.Fallback -and $c.Fallback -ne 'none') { ", fallback $($c.Fallback)" }))"
+  return "$name starting$where ($($c.Model), effort $($c.Effort)$(if ($c.Fallback -and $c.Fallback -ne 'none') { ", fallback $($c.Fallback)" }))"
 }
 
 function Stop-Lane($tier) {

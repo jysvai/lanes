@@ -96,6 +96,7 @@ lanes는 혼자 쓸 때보다 **다른 절약 도구와 겹쳐 쓸 때** 효과�
 | **토큰 절약 도구**: 직접 만든 것, Sprag(예전 이름 claude-token-saver) 같은 도구, Claude Code의 `/context`·`/cost` 같은 기본 기능 | 캐시·문맥·사용량을 지켜보고 낭비를 알려 줌 | 낭비가 보이는 일을 레인이 싼 모델로 덜어 가요 |
 | **서브에이전트 · 위임 스킬 · 플러그인** | 한 번 묻고 끝나는 짧은 조회 | 짧은 건 서브에이전트, 길거나 이어지는 건 레인으로 |
 | **lanes** | 길게 이어지는 보조 작업, 재시작해도 남아야 하는 일 | 메인 문맥은 결론만 받아 가벼워져요 |
+| **[JYSV HERA](https://github.com/jysvai/JYSV-HERA)**: 프로젝트 터미널 · AI CLI 지휘소 | 프로젝트별 탭, 세션 기억, 사용량 | HERA에 등록한 프로젝트에서는 레인이 새 창 대신 HERA 탭으로 열려요(0.3.13) |
 
 메인은 "짧은 일회성 조회는 서브에이전트로, 길거나 이어지는 일은 레인으로, 사용자가 가진 절약·위임 스킬과 플러그인은 함께 쓰라"는 안내를 받고 시작해요.
 
@@ -239,7 +240,7 @@ lanes  sonnet ● T3 2m +1 · haiku ○
 | mid 모델 · 2순위 · effort | `claude-sonnet-5-5` · `claude-opus-5-5` · `high` |
 | low 모델 · 2순위 · effort | `claude-haiku-5-5` · `claude-sonnet-5-5` · `medium` |
 | 작업 방식 (How you work) | `auto` · `developer` · `planner` · `beginner` |
-| 레인 여는 방식 | `window` (새 창) · `background` (`claude attach <이름>`으로 보기) |
+| 레인 여는 방식 | `window` (새 창, JYSV HERA 안이면 HERA 탭) · `background` (`claude attach <이름>`으로 보기) |
 | 레인 권한 모드 | `auto` · `acceptEdits` · `dontAsk` · `manual` · `bypassPermissions` |
 | 놀면 닫기 | `20`분 (0이면 안 닫음) |
 | 직접 읽기 알림 | `20000` 토큰 (0이면 안 알림) |
