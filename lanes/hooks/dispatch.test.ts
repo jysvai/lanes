@@ -5,7 +5,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // A project "demo" whose low lane is running and registered as a peer.
-function ground(on: On, sent: { to?: unknown; text?: string; run?: string; runs?: string[] }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, fs: { exists?: (path: string) => boolean; list?: (path: string) => unknown[] | undefined } = {}) {
+function ground(on: On, sent: { to?: unknown; text?: string; run?: string; runs?: string[]; gone?: number[] }, files: Record<string, string> = {}, delivered = true, env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' }, fs: { exists?: (path: string) => boolean; list?: (path: string) => unknown[] | undefined } = {}) {
   mock.env(on, env)
   const clock = mock.clock(on)
   files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-55c5-low', sessionId: 'lane-1' })
@@ -43,6 +43,13 @@ function ground(on: On, sent: { to?: unknown; text?: string; run?: string; runs?
   on('prompt.compose', () => ({ sections: [] }))
   on('session.receive', ($, e) => ({ text: e.text }) as never)
   on('process.run', ($, e) => {
+    // tasklist, asked whether a session's process is running: all are but those in sent.gone
+    const pid = JSON.stringify(e).match(/PID eq (\d+)/)?.[1]
+    if (pid !== undefined) {
+      const stdout = sent.gone?.includes(Number(pid)) ? 'INFO: No tasks are running which match the specified criteria.' : `"claude.exe","${pid}","Console","1","1 K"`
+
+      return { value: { stdout, stderr: '', exitCode: 0 } } as never
+    }
     sent.run = JSON.stringify(e)
     sent.runs?.push(sent.run)
 
@@ -173,6 +180,102 @@ test("a lane's session reopened by hand holds its name: a task waits for it to c
   delete files['C:/Users/me/.claude/sessions/11.json']
   await clock.advance(10_000)
   expect(sent.runs?.map(r => (r.includes("'start'") ? 'start' : '?'))).toEqual(['start'])
+})
+
+test("a lane's session reopened by hand still holds its name right after a /clear there, by its process", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': closing,
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': JSON.stringify({ sessionId: 'lane-1', pid: 11 }),
+  }
+  ground(on, sent, files)
+  // the registry has the id the /clear gave it; nothing typed there yet to say so
+  files['C:/Users/me/.claude/sessions/11.json'] = JSON.stringify({ pid: 11, name: 'demo-55c5-low', sessionId: 'lane-2' })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the tests' } as never)
+
+  expect(ran.text).toContain('T1 queued for demo-55c5-low: that lane\'s own session was reopened by hand')
+  expect(sent.to).toBeUndefined()
+  // a stop of the other lane says nothing of this one
+  const stopped = await $.command.run({ command: 'lane', args: 'stop mid' } as never)
+  expect(stopped.text).not.toContain('reopened by hand')
+})
+
+test("a lane's process under a pid a session reopened by hand once had isn't held", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'idle', since: 0, sessionId: 'lane-1', task: '', last: '', turns: 0, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': JSON.stringify({ sessionId: 'lane-0', pid: 11 }),
+  }
+  ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+
+  expect((await $.command.run({ command: 'lane', args: 'low count the tests' } as never)).text).toBe('T1 → demo-55c5-low')
+})
+
+test("a lane's session reopened by hand that was killed holds nothing: its registry entry and file are left, its process isn't", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[]; gone?: number[] } = { runs: [], gone: [11] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': closing,
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': JSON.stringify({ sessionId: 'lane-1', pid: 11 }),
+  }
+  ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the tests' } as never)
+
+  expect(ran.text).toContain('T1 queued for demo-55c5-low; it was closing')
+  expect(sent.runs?.map(r => (r.includes("'stop'") ? 'stop' : r.includes("'start'") ? 'start' : '?'))).toEqual(['stop', 'start'])
+})
+
+test('a task that waited for a session reopened by hand gets a lane when that session is killed, whatever the lane last said', async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[]; gone?: number[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'idle', since: 0, sessionId: 'lane-0', task: '', last: '', turns: 0, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': JSON.stringify({ sessionId: 'lane-1', pid: 11 }),
+  }
+  // nothing answers under the lane's name once that session is gone
+  const clock = ground(on, sent, files, false)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  expect((await $.command.run({ command: 'lane', args: 'low count the tests' } as never)).text).toContain('reopened by hand')
+
+  // its window is forced shut: its registry entry stays (seen running a minute ago, it is asked again after that)
+  sent.gone = [11]
+  await clock.advance(70_000)
+  expect(sent.runs?.map(r => (r.includes("'start'") ? 'start' : '?'))).toEqual(['start'])
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')[0].startsWith('[T1] count the tests')).toBe(true)
+  expect(files['C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json']).toBe('{}')
+})
+
+test("a queued task the lane's registry entry can't take goes back, and a fresh lane opens for it", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'idle', since: 0, sessionId: 'lane-1', task: '', last: '', turns: 0, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T1] count the tests']),
+  }
+  const clock = ground(on, sent, files, false)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await clock.advance(30_000)
+
+  expect(sent.to).toBe('demo-55c5-low')
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')).toEqual(['[T1] count the tests'])
+  expect(sent.runs?.map(r => (r.includes("'start'") ? 'start' : '?'))).toEqual(['start'])
+})
+
+test('a task that waited for a session reopened by hand gets a lane when that session closes, though main restarted meanwhile', async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T1] count the tests']),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.waiting.json': 'true',
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': '{}',
+  }
+  const clock = ground(on, sent, files)
+  delete files['C:/Users/me/.claude/sessions/11.json']
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await clock.advance(10_000)
+
+  expect(sent.runs?.map(r => (r.includes("'start'") ? 'start' : '?'))).toEqual(['start'])
+  await clock.advance(10 * 60_000)
+  expect(sent.runs?.length).toBe(1)
 })
 
 test("a new lane session under the name, still starting, isn't taken for the closing one", async ($, on) => {

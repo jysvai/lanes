@@ -341,6 +341,8 @@ const issuedFile = () => `${ownDir()}/issued.json`
 const laneSessionsFile = () => `${ownDir()}/lane-sessions.json`
 // the session of a lane reopened by hand while it runs: it holds the lane's name, and main leaves it be
 const byHandFile = (t: Tier) => `${ownDir()}/${t}.by-hand.json`
+// a queue that waits for that session to close: a main that restarts meanwhile still opens a lane for it then
+const waitingFile = (t: Tier) => `${ownDir()}/${t}.waiting.json`
 const notesSeal = () => `${ownDir()}/notes.json`
 const spendFile = (r: Role) => `${dir}/state/${r}.spend.json`
 // main's log before the project's first lane (see record)
@@ -1251,23 +1253,57 @@ async function followSession($: EngineInterface) {
 }
 
 // A lane's session reopened by hand says it holds the lane's name, under the session id it has
-// now (a /clear there gives it a new one).
+// now and its process. A /clear there gives it a new id, heard of only at its next turn; the process stays.
 let heldAs = ''
+let heldPid: number | undefined
 async function holdByHand($: EngineInterface) {
   if (adopted === undefined) return
   const id = await $.session.id()
   if (id === heldAs) return
-  heldAs = id
+  // found once, it stays: the registry may list a /clear's new id only later
+  heldPid ??= (await registry($)).find(p => p.sessionId === id)?.pid
+  // not listed yet as it starts: the next turn tries again
+  heldAs = heldPid === undefined ? '' : id
   try {
-    await $.fs.write(byHandFile(adopted), JSON.stringify({ sessionId: id }))
+    await $.fs.write(byHandFile(adopted), JSON.stringify({ sessionId: id, pid: heldPid }))
   } catch {
     // main may then take it for a closing lane, as before 0.3.14
   }
 }
 
-// A peer under a lane's name that is that lane's session reopened by hand.
+// A peer under a lane's name that is that lane's session reopened by hand: the session it said,
+// or its process under a new id the lane's own state doesn't have. One that was killed leaves its
+// registry entry and that file behind, so it must still be running.
 async function heldByHand($: EngineInterface, t: Tier, peer: Peer | undefined) {
-  return peer !== undefined && (await readJson<{ sessionId?: string }>($, byHandFile(t), {})).sessionId === peer.sessionId
+  if (peer === undefined) return false
+  const held = await readJson<{ sessionId?: string; pid?: number }>($, byHandFile(t), {})
+  const isIt = (held.sessionId !== undefined && held.sessionId === peer.sessionId) || (held.pid === peer.pid && (await readLane($, t))?.sessionId !== peer.sessionId)
+  if (!isIt) return false
+  if (await isRunning($, peer.pid)) return true
+  // killed, so it never let go itself
+  await $.fs.write(byHandFile(t), '{}').catch(() => undefined)
+
+  return false
+}
+
+// when a process was last seen running
+const seenRunning = new Map<number, number>()
+async function isRunning($: EngineInterface, pid: number) {
+  const now = await $.clock.now()
+  const seen = seenRunning.get(pid)
+  if (seen !== undefined && now - seen < 60_000) return true
+  try {
+    // tasklist finds nothing with exit 0 and a line in the system's language; a CSV row quotes the pid
+    const ran = isWindows
+      ? await $.process.run(['tasklist.exe', '/FI', `PID eq ${pid}`, '/NH', '/FO', 'CSV'], { timeoutMs: 15_000 })
+      : await $.process.run(['/bin/sh', '-c', 'kill -0 "$1"', 'sh', String(pid)], { timeoutMs: 15_000 })
+    if (isWindows ? ran.exitCode === 0 && !ran.stdout.includes(`"${pid}"`) : ran.exitCode !== 0) return false
+  } catch {
+    // not known to be gone
+  }
+  seenRunning.set(pid, now)
+
+  return true
 }
 
 async function save($: EngineInterface) {
@@ -1532,7 +1568,7 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
   const queued = await readQueue($, t)
   if (await heldByHand($, t, peer)) {
     await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
-    waitingOnHand[t] = true
+    await $.fs.write(waitingFile(t), 'true')
 
     return `${id} queued for ${name}: that lane's own session was reopened by hand and holds its name, so no lane can open under it. A fresh lane takes the task once that session closes.`
   }
@@ -1572,8 +1608,9 @@ async function stopLanes($: EngineInterface, which: Tier | 'all') {
   const dropped: string[] = []
   // a lane's session reopened by hand is the person's own now: it isn't closed from here
   const held: Tier[] = []
-  for (const t of TIERS) if (await heldByHand($, t, live.get(laneName(t)))) held.push(t)
-  const closing = (which === 'all' ? TIERS : [which]).filter(t => !held.includes(t))
+  const asked = which === 'all' ? TIERS : [which]
+  for (const t of asked) if (await heldByHand($, t, live.get(laneName(t)))) held.push(t)
+  const closing = asked.filter(t => !held.includes(t))
   if (closing.length === 0) return `${held.map(laneName).join(' and ')}: reopened by hand, so not closed from here; close it there.`
   for (const t of closing) {
     // what a running lane is on, and what it took in to do after, go with it
@@ -1604,9 +1641,6 @@ async function reopen($: EngineInterface, t: Tier) {
   return runScript($, 'start', t)
 }
 
-// a queue that waits for a lane's session reopened by hand to close
-const waitingOnHand: Partial<Record<Tier, boolean>> = {}
-
 // Main side, every poll: hand the next queued task to a live lane that has been
 // idle a few seconds (a lane that just opened takes its queue itself first).
 async function pump($: EngineInterface) {
@@ -1616,15 +1650,20 @@ async function pump($: EngineInterface) {
     const queued = await readQueue($, t)
     if (queued.length === 0) continue
     const peer = live.get(laneName(t))
-    if (peer === undefined) {
-      // the session reopened by hand has closed: a fresh lane takes what waited for it
-      if (waitingOnHand[t] === true) {
-        waitingOnHand[t] = false
-        await runScript($, 'start', t)
-      }
-      continue
-    }
     if (await heldByHand($, t, peer)) continue
+    // the session reopened by hand has closed, or was killed and left its registry entry behind:
+    // a fresh lane takes what waited for it
+    if (await readJson($, waitingFile(t), false)) {
+      // a session that let go of the name may still be exiting: the wait ends when it is gone
+      if (peer === undefined || !(await isRunning($, peer.pid))) {
+        await $.fs.write(waitingFile(t), 'false')
+        // a registry entry left under the name passes for the new lane: no start again for a while
+        reopened[t] = now
+        await runScript($, 'start', t)
+        continue
+      }
+    }
+    if (peer === undefined) continue
     const s = await readLane($, t)
     // a queue behind a lane that closed with it still waiting moves to a fresh lane (once in a
     // while: one whose session wouldn't go is still there next poll)
@@ -1636,7 +1675,15 @@ async function pump($: EngineInterface) {
     if (s === undefined || s.state !== 'idle' || now - s.since < 10_000) continue
     const [next = '', ...rest] = queued
     await $.fs.write(queueFile(t), JSON.stringify(rest))
-    await $.session.send({ to: laneName(t), text: next })
+    if ((await $.session.send({ to: laneName(t), text: next })).isDelivered) continue
+    // a registry entry left by a lane that was killed: the task goes back, and a fresh lane opens
+    // for it (once in a while, as for a closing lane)
+    await $.fs.write(queueFile(t), JSON.stringify([next, ...(await readQueue($, t))]))
+    const last = reopened[t]
+    if (last === undefined || now - last > 120_000) {
+      reopened[t] = now
+      await runScript($, 'start', t)
+    }
   }
 }
 
