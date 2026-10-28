@@ -5,7 +5,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 // The low lane of project "demo", writing its state to files.
-function ground(on: On, files: Record<string, string>) {
+function ground(on: On, files: Record<string, string>, ids = { session: 'lane-1' }) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', CLAUDE_LANE: 'low' })
   const clock = mock.clock(on)
   // on macOS a C:/ path isn't absolute and comes resolved against the plugin's folder
@@ -20,7 +20,7 @@ function ground(on: On, files: Record<string, string>) {
     return { value: undefined }
   })
   on('session.model', () => ({ value: 'claude-haiku-5-5' }))
-  on('session.id', () => ({ value: 'lane-1' }))
+  on('session.id', () => ({ value: ids.session }))
   on('ui.status', () => ({ value: undefined }))
   on('turn.start', ($, e) => e as never)
   on('turn.complete', () => ({ text: '' }) as never)
@@ -81,6 +81,18 @@ test('a claude -p started inside the lane (a summary hook, say) leaves the lane 
   await $.turn.start({ turnId: 't1', text: 'Summarise this session: ... [T11] audit the boards ...' } as never)
 
   expect(files['C:/work/demo/.claude/lanes/state/low.json']).toBeUndefined()
+})
+
+test("a lane notes each session id it runs under in the user's folder, a /clear's new one too", async ($, on) => {
+  const files: Record<string, string> = {}
+  const ids = { session: 'lane-1' }
+  ground(on, files, ids)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  // after a /clear no session.start comes: the next turn runs under the new id
+  ids.session = 'lane-2'
+  await $.turn.start({ turnId: 't1', text: '[T7] count the files' } as never)
+
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/lane-sessions.json'] ?? '{}')).toEqual({ 'lane-1': 'low', 'lane-2': 'low' })
 })
 
 test('the plugin reloading inside a busy lane keeps its task', async ($, on) => {

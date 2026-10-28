@@ -8,7 +8,7 @@ import type { On } from 'claude-code'
 // Project "demo" on Windows, its files in memory; each model request answers with `usage`.
 function ground(on: On, files: Record<string, string>, env: Record<string, string>, usage: Record<string, unknown> | null | (() => Record<string, unknown>)) {
   mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', ...env })
-  mock.clock(on)
+  const clock = mock.clock(on)
   // on macOS a C:/ path isn't absolute and comes resolved against the plugin's folder
   const key = (p: string) => p.replaceAll('\\', '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -28,6 +28,8 @@ function ground(on: On, files: Record<string, string>, env: Record<string, strin
   on('turn.step', async function* ($, e) {
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: typeof usage === 'function' ? usage() : usage } as never
   })
+
+  return clock
 }
 
 async function request($: Engine, model: string, agentId?: string) {
@@ -130,6 +132,109 @@ test("a restart or a plugin reload before the project's first lane keeps what ma
   // kept in the user's folder, still nothing in the project
   expect(Object.keys(files).some(f => /^C:\/Users\/me\/\.claude\/lanes\/demo-[0-9a-f]{4}\/main\.spend\.json$/.test(f))).toBe(true)
   expect(files['C:/work/demo/.claude/lanes/state/main.spend.json']).toBeUndefined()
+})
+
+test('two main sessions in one project add to one log, neither writing over what the other counted', async ($, on) => {
+  const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/mid.json': '{}' }
+  ground(on, files, {}, { model: 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+  // the other main session writes its five requests in between
+  const log = JSON.parse(files['C:/work/demo/.claude/lanes/state/main.spend.json'] ?? '{}')
+  log[today] = { ...log[today], calls: log[today].calls + 5, cost: log[today].cost + 1, onMain: log[today].onMain + 1 }
+  files['C:/work/demo/.claude/lanes/state/main.spend.json'] = JSON.stringify(log)
+  await request($, 'claude-opus-5-5')
+
+  expect(spendOf(files, 'main').calls).toBe(7)
+  expect(spendOf(files, 'main').cost.toFixed(2)).toBe('1.40')
+  expect((await $.command.run({ command: 'lane', args: 'usage' } as never)).text).toContain('  main  opus-5-5           7 calls     $1.40')
+
+  // caught mid-write by the other session, the log is left alone, and this request waits
+  const whole = files['C:/work/demo/.claude/lanes/state/main.spend.json'] ?? '{}'
+  files['C:/work/demo/.claude/lanes/state/main.spend.json'] = '{"2026-'
+  await request($, 'claude-opus-5-5')
+
+  expect(files['C:/work/demo/.claude/lanes/state/main.spend.json']).toBe('{"2026-')
+
+  // the other session finishes its write with one more request; the next write here adds both of this one's
+  const done = JSON.parse(whole)
+  done[today] = { ...done[today], calls: done[today].calls + 1 }
+  files['C:/work/demo/.claude/lanes/state/main.spend.json'] = JSON.stringify(done)
+  await request($, 'claude-opus-5-5')
+
+  expect(spendOf(files, 'main').calls).toBe(10)
+})
+
+test('a day of requests no price is known for is written whole, to be priced from its tokens when read', async ($, on) => {
+  const files: Record<string, string> = {}
+  ground(on, files, { CLAUDE_LANE: 'mid' }, { model: 'gateway-model-x', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'gateway-model-x')
+  await request($, 'gateway-model-x')
+  await request($, 'gateway-model-x')
+
+  expect(spendOf(files, 'mid')).toMatchObject({ calls: 3, unpriced: 3, cost: 0 })
+})
+
+// what the lanes' sessions ran as here, kept in the user's folder
+const laneSessions = 'C:/Users/me/.claude/lanes/demo-55c5/lane-sessions.json'
+
+test("a lane's session reopened by hand logs to its lane, and is no lane: no task, no queue, no closing when idle", async ($, on) => {
+  const files: Record<string, string> = {
+    [laneSessions]: JSON.stringify({ 'session-0': 'low', 'session-1': 'low', 'session-2': 'mid' }),
+    // a newer low lane has run since; the task the reopened session was on ended STOPPED
+    'C:/work/demo/.claude/lanes/state/low.json': JSON.stringify({ tier: 'low', state: 'off', since: 5, model: 'claude-haiku-5-5', sessionId: 'session-2', task: '[T9] dump the poses', open: true, last: '', turns: 1, tokens: { input: 0, output: 0, cacheRead: 0 } }),
+    'C:/work/demo/.claude/lanes/state/low.tasks.json': JSON.stringify({ T9: { lane: 'low', goal: 'dump the poses', started: 1, last: 5, calls: 1, cost: 0.01, onMain: 0.2 } }),
+    'C:/Users/me/.claude/lanes/demo-55c5/low.queue.json': JSON.stringify(['[T10] count the files']),
+  }
+  const clock = ground(on, files, {}, { model: 'claude-haiku-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 100_000, output_tokens: 0 })
+  const exits: string[] = []
+  on('command.run', ($, e) => {
+    exits.push(e.command)
+
+    return { text: '' } as never
+  })
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }) as never)
+  const sent: string[] = []
+  on('prompt.submit', ($, e) => {
+    sent.push(String((e as { text?: string }).text))
+
+    return {} as never
+  })
+  const state = files['C:/work/demo/.claude/lanes/state/low.json']
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-haiku-5-5')
+  await clock.advance(61 * 60_000)
+
+  expect(spendOf(files, 'low').calls).toBe(1)
+  expect(spendOf(files, 'main')).toBeUndefined()
+  expect(exits).toEqual([])
+  expect(sent).toEqual([])
+  expect(files['C:/work/demo/.claude/lanes/state/low.json']).toBe(state)
+  expect(JSON.parse(files['C:/work/demo/.claude/lanes/state/low.tasks.json'] ?? '{}').T9.calls).toBe(1)
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')).toEqual(['[T10] count the files'])
+  // it holds the lane's name while it runs, for main to leave it be, and lets go when it closes
+  expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json'] ?? '{}')).toEqual({ sessionId: 'session-1' })
+  await $.session.end({ reason: 'exit', sessionId: 'session-1' } as never)
+  expect(files['C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json']).toBe('{}')
+})
+
+test('a session no lane ran as is main, as before', async ($, on) => {
+  const files: Record<string, string> = { [laneSessions]: JSON.stringify({ 'session-0': 'low' }), 'C:/work/demo/.claude/lanes/state/low.json': '{}' }
+  ground(on, files, {}, { model: 'claude-opus-5-5', input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 })
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  await request($, 'claude-opus-5-5')
+
+  expect(spendOf(files, 'main').calls).toBe(1)
+  expect(spendOf(files, 'low')).toBeUndefined()
+})
+
+test('a lane notes the session id it runs as, in the user\'s folder', async ($, on) => {
+  const files: Record<string, string> = { [laneSessions]: JSON.stringify({ 'session-0': 'low' }) }
+  ground(on, files, { CLAUDE_LANE: 'mid' }, null)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+
+  expect(JSON.parse(files[laneSessions] ?? '{}')).toEqual({ 'session-0': 'low', 'session-1': 'mid' })
 })
 
 test('/lane usage adds up the main session and the lanes and says what the lanes saved', async ($, on) => {

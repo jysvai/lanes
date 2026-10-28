@@ -186,6 +186,12 @@ const OPENING_MS = 45_000
 let mainName = ''
 let idleTimer: Timer | undefined
 let spend: SpendLog = {}
+// what this session counted since it last wrote its log; the write adds it to the log as it is on
+// disk then, so two sessions of one role (two main sessions in a project) don't write over each other
+let unsaved: SpendLog = {}
+// a lane's session the person reopened by hand (`claude --resume` from another shell, so no
+// CLAUDE_LANE): its requests count as the lane's, but it is theirs now, no lane and no main
+let adopted: Tier | undefined
 let ledger: Ledger = {}
 // main side, read once at session start so the prompt section stays the same all session
 let notesIndex = ''
@@ -331,6 +337,10 @@ const stateFile = (t: Tier) => `${dir}/state/${t}.json`
 const ownDir = () => `${home}/lanes/${slug}`
 const queueFile = (t: Tier) => `${ownDir()}/${t}.queue.json`
 const issuedFile = () => `${ownDir()}/issued.json`
+// the session ids lanes ran under here, newest last: in the user's folder, as a repo could plant one in the project
+const laneSessionsFile = () => `${ownDir()}/lane-sessions.json`
+// the session of a lane reopened by hand while it runs: it holds the lane's name, and main leaves it be
+const byHandFile = (t: Tier) => `${ownDir()}/${t}.by-hand.json`
 const notesSeal = () => `${ownDir()}/notes.json`
 const spendFile = (r: Role) => `${dir}/state/${r}.spend.json`
 // main's log before the project's first lane (see record)
@@ -461,16 +471,19 @@ function addSpend(a: Spend, b: Spend): Spend {
   return {
     calls: a.calls + b.calls,
     unpriced: a.unpriced + b.unpriced,
-    repriced: (a.repriced ?? 0) + (b.repriced ?? 0),
-    repricedCost: (a.repricedCost ?? 0) + (b.repricedCost ?? 0),
     input: a.input + b.input,
     cacheWrite: a.cacheWrite + b.cacheWrite,
     cacheRead: a.cacheRead + b.cacheRead,
     output: a.output + b.output,
     cost: a.cost + b.cost,
     onMain: a.onMain + b.onMain,
-    uses: Object.fromEntries(USES.map(u => [u, (a.uses?.[u] ?? 0) + (b.uses?.[u] ?? 0)])),
-    took: (a.took ?? 0) + (b.took ?? 0),
+    // what neither has stays out, as the logs on disk leave it out
+    ...(a.repriced === undefined && b.repriced === undefined
+      ? {}
+      : { repriced: (a.repriced ?? 0) + (b.repriced ?? 0), repricedCost: (a.repricedCost ?? 0) + (b.repricedCost ?? 0) }),
+    ...(a.uses === undefined && b.uses === undefined
+      ? {}
+      : { uses: Object.fromEntries(USES.map(u => [u, (a.uses?.[u] ?? 0) + (b.uses?.[u] ?? 0)])), took: (a.took ?? 0) + (b.took ?? 0) }),
     ...(a.sub === undefined && b.sub === undefined
       ? {}
       : {
@@ -510,24 +523,46 @@ async function readSpend($: EngineInterface, r: Role): Promise<SpendLog> {
       // not there yet
     }
   }
-  if (log === undefined) return {}
-  for (const [day, s] of Object.entries(log)) log[day] = repriced(s, cfg[r].model)
+  return log === undefined ? {} : repricedLog(log, r)
+}
 
-  return log
+function repricedLog(log: SpendLog, r: Role): SpendLog {
+  return Object.fromEntries(Object.entries(log).map(([day, s]) => [day, repriced(s, cfg[r].model)]))
 }
 
 // A main session counts from its start, but writes its log in the project only once the
 // project has used the lanes. Until then the log waits in the user's folder, so a restart or
 // a plugin reload before the first lane loses none of it; the first write here carries it over.
 async function saveSpend($: EngineInterface, role: Role) {
+  if (linked !== '') return
   const inProject = role !== 'main' || (await $.fs.exists(`${dir}/state`))
-  await put($, inProject ? spendFile(role) : earlySpendFile(), JSON.stringify(spend, null, 1))
+  const file = inProject ? spendFile(role) : earlySpendFile()
+  // the log as another session of this role may have left it, or none yet; one caught
+  // mid-write is left alone, and what this session counted waits for its next write
+  const onDisk = await readJson<SpendLog | undefined>($, file, undefined)
+  if (onDisk === undefined && (await $.fs.exists(file))) return
+  // written as counted: a day is priced from its tokens only on reading, once all of it is
+  const log = withUnsaved(onDisk ?? spend)
+  unsaved = {}
+  spend = repricedLog(log, role)
+  await put($, file, JSON.stringify(log, null, 1))
+}
+
+// a log of this session's role with what this session counted since its last write added in
+function withUnsaved(log: SpendLog): SpendLog {
+  const out = { ...log }
+  for (const [day, d] of Object.entries(unsaved)) {
+    const had = out[day]
+    out[day] = had === undefined ? d : addSpend(had, d)
+  }
+
+  return out
 }
 
 // Every model request of this session (subagents included) adds to its role's log for the day,
 // with what the same tokens would have cost on the main model.
 async function record($: EngineInterface, usage: (Usage & { model: string }) | null | undefined, asked: string, agentId: string | undefined) {
-  const role: Role | undefined = tier ?? (isMain ? 'main' : undefined)
+  const role: Role | undefined = tier ?? adopted ?? (isMain ? 'main' : undefined)
   if (role === undefined || !usage) return
   const prompt = usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) + usage.cache_read_input_tokens
   if (me !== undefined) {
@@ -543,7 +578,7 @@ async function record($: EngineInterface, usage: (Usage & { model: string }) | n
   const model = PRICES.some(([re]) => re.test(usage.model)) ? usage.model : asked
   const cost = price(model, usage, isSubagent)
   const onMain = price(cfg.main.model, usage, isSubagent) ?? cost ?? 0
-  const s = (spend[day] ??= noSpend())
+  const s = (unsaved[day] ??= noSpend())
   s.calls += 1
   s.unpriced += cost === undefined ? 1 : 0
   s.input += usage.input_tokens
@@ -703,7 +738,7 @@ const nudge = (k: number) =>
 // request writes out; returns the note for main, if one is due.
 async function noteUse($: EngineInterface, use: Use, chars: number) {
   if (!isMain || linked !== '') return undefined
-  const s = (spend[dayOf(await $.clock.now())] ??= noSpend())
+  const s = (unsaved[dayOf(await $.clock.now())] ??= noSpend())
   s.uses = { ...s.uses, [use]: (s.uses?.[use] ?? 0) + 1 }
   s.took = (s.took ?? 0) + chars
   readSince = use === 'handoff' ? 0 : readSince + chars
@@ -906,7 +941,7 @@ async function spendReport($: EngineInterface, all: boolean) {
   const today = dayOf(await $.clock.now())
   // this session's own role from memory: a main session's log may not be on disk yet
   const own: Role | undefined = tier ?? (isMain ? 'main' : undefined)
-  const logs = await Promise.all(ROLES.map(async r => [r, r === own ? spend : await readSpend($, r)] as const))
+  const logs = await Promise.all(ROLES.map(async r => [r, r === own ? withUnsaved(spend) : await readSpend($, r)] as const))
   const days = [...new Set(logs.flatMap(([, log]) => Object.keys(log)))].sort()
   const of = (log: SpendLog) => (all ? Object.values(log) : [log[today] ?? noSpend()]).reduce(addSpend, noSpend())
   const by = new Map(logs.map(([r, log]) => [r, of(log)]))
@@ -1184,6 +1219,57 @@ async function readLane($: EngineInterface, t: Tier): Promise<LaneState | undefi
   }
 }
 
+// The lane this session ran as, if it ever did here.
+async function laneSession($: EngineInterface): Promise<Tier | undefined> {
+  const ran = await readJson<Record<string, Tier>>($, laneSessionsFile(), {})
+  const t = ran[await $.session.id()]
+
+  return TIERS.find(x => x === t)
+}
+
+async function noteLaneSession($: EngineInterface, t: Tier, sessionId: string) {
+  const read = await readJson<Record<string, Tier> | undefined>($, laneSessionsFile(), undefined)
+  // one caught mid-write is left alone rather than written over with this id alone
+  if (read === undefined && (await $.fs.exists(laneSessionsFile()))) return
+  const ran = read ?? {}
+  if (ran[sessionId] === t) return
+  delete ran[sessionId]
+  ran[sessionId] = t
+  try {
+    await $.fs.write(laneSessionsFile(), JSON.stringify(Object.fromEntries(Object.entries(ran).slice(-LEDGER_MAX))))
+  } catch {
+    // this session reopened by hand later counts as main's, as before 0.3.14
+  }
+}
+
+// After a /clear (no session.start comes) the same lane runs under a new session id.
+async function followSession($: EngineInterface) {
+  if (me === undefined || tier === undefined) return
+  const id = await $.session.id()
+  if (id !== me.sessionId) await noteLaneSession($, tier, id)
+  me.sessionId = id
+}
+
+// A lane's session reopened by hand says it holds the lane's name, under the session id it has
+// now (a /clear there gives it a new one).
+let heldAs = ''
+async function holdByHand($: EngineInterface) {
+  if (adopted === undefined) return
+  const id = await $.session.id()
+  if (id === heldAs) return
+  heldAs = id
+  try {
+    await $.fs.write(byHandFile(adopted), JSON.stringify({ sessionId: id }))
+  } catch {
+    // main may then take it for a closing lane, as before 0.3.14
+  }
+}
+
+// A peer under a lane's name that is that lane's session reopened by hand.
+async function heldByHand($: EngineInterface, t: Tier, peer: Peer | undefined) {
+  return peer !== undefined && (await readJson<{ sessionId?: string }>($, byHandFile(t), {})).sessionId === peer.sessionId
+}
+
 async function save($: EngineInterface) {
   if (tier !== undefined && me !== undefined) await put($, stateFile(tier), JSON.stringify(me, null, 1))
 }
@@ -1444,6 +1530,12 @@ async function dispatch($: EngineInterface, t: Tier, task: string) {
   const isLive = peer !== undefined
   const state = await readLane($, t)
   const queued = await readQueue($, t)
+  if (await heldByHand($, t, peer)) {
+    await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
+    waitingOnHand[t] = true
+
+    return `${id} queued for ${name}: that lane's own session was reopened by hand and holds its name, so no lane can open under it. A fresh lane takes the task once that session closes.`
+  }
   if (isClosing(peer, state)) {
     // It takes no more tasks, though a message to it still counts as delivered: a fresh lane takes this one.
     await $.fs.write(queueFile(t), JSON.stringify([...queued, body]))
@@ -1478,7 +1570,12 @@ async function stopLanes($: EngineInterface, which: Tier | 'all') {
   const live = await peers($)
   const running: string[] = []
   const dropped: string[] = []
-  for (const t of which === 'all' ? TIERS : [which]) {
+  // a lane's session reopened by hand is the person's own now: it isn't closed from here
+  const held: Tier[] = []
+  for (const t of TIERS) if (await heldByHand($, t, live.get(laneName(t)))) held.push(t)
+  const closing = (which === 'all' ? TIERS : [which]).filter(t => !held.includes(t))
+  if (closing.length === 0) return `${held.map(laneName).join(' and ')}: reopened by hand, so not closed from here; close it there.`
+  for (const t of closing) {
     // what a running lane is on, and what it took in to do after, go with it
     const s = live.has(laneName(t)) ? await readLane($, t) : undefined
     if (s?.open === true && isTask(s.task)) running.push(taskId(s.task))
@@ -1488,10 +1585,11 @@ async function stopLanes($: EngineInterface, which: Tier | 'all') {
     await $.fs.write(queueFile(t), '[]')
     dropped.push(...queued.map(taskId))
   }
-  const ran = await runScript($, 'stop', which)
+  const ran = await runScript($, 'stop', closing.length === TIERS.length ? 'all' : (closing[0] ?? which))
 
   return [
     ran,
+    ...(held.length > 0 ? [`${held.map(laneName).join(' and ')}: reopened by hand, so not closed from here`] : []),
     ...(running.length > 0 ? [`stopped mid-task: ${running.join(', ')} (/lane tasks shows it STOPPED)`] : []),
     ...(dropped.length > 0 ? [`waiting tasks dropped: ${dropped.join(', ')} (send them again to run them)`] : []),
   ].join('\n')
@@ -1506,6 +1604,9 @@ async function reopen($: EngineInterface, t: Tier) {
   return runScript($, 'start', t)
 }
 
+// a queue that waits for a lane's session reopened by hand to close
+const waitingOnHand: Partial<Record<Tier, boolean>> = {}
+
 // Main side, every poll: hand the next queued task to a live lane that has been
 // idle a few seconds (a lane that just opened takes its queue itself first).
 async function pump($: EngineInterface) {
@@ -1513,7 +1614,17 @@ async function pump($: EngineInterface) {
   const live = await peers($)
   for (const t of TIERS) {
     const queued = await readQueue($, t)
-    if (queued.length === 0 || !live.has(laneName(t))) continue
+    if (queued.length === 0) continue
+    const peer = live.get(laneName(t))
+    if (peer === undefined) {
+      // the session reopened by hand has closed: a fresh lane takes what waited for it
+      if (waitingOnHand[t] === true) {
+        waitingOnHand[t] = false
+        await runScript($, 'start', t)
+      }
+      continue
+    }
+    if (await heldByHand($, t, peer)) continue
     const s = await readLane($, t)
     // a queue behind a lane that closed with it still waiting moves to a fresh lane (once in a
     // while: one whose session wouldn't go is still there next poll)
@@ -1570,8 +1681,7 @@ async function markBusy($: EngineInterface, from: string) {
   idleTimer?.cancel()
   me.state = 'busy'
   me.since = await $.clock.now()
-  // after a /clear the same lane runs under a new session id
-  me.sessionId = await $.session.id()
+  await followSession($)
   // A turn raised by something other than a task (a background job finishing,
   // a reply from the other lane) carries on with the current task.
   const fresh = pending || (isTask(from) ? taskLine(from) : '')
@@ -1666,7 +1776,7 @@ async function markIdle($: EngineInterface, answer: string) {
   if (me === undefined) return
   me.state = 'idle'
   me.since = await $.clock.now()
-  me.sessionId = await $.session.id()
+  await followSession($)
   me.next = []
   me.last = firstLine(answer)
   me.turns += 1
@@ -1694,6 +1804,7 @@ async function startLane($: EngineInterface, t: Tier) {
   tier = t
   const sessionId = await $.session.id()
   const saved = await readLane($, t)
+  await noteLaneSession($, t, sessionId)
   // The plugin reloading inside a running lane keeps what the lane is doing.
   const reloaded = saved !== undefined && saved.sessionId === sessionId && saved.state !== 'off'
   me = reloaded
@@ -1795,8 +1906,15 @@ export const register: Register = (on, options) => {
     // that another plugin's hook starts inherits CLAUDE_LANE from the lane's
     // shell, and must not write the lane's state.
     const role = await $.env.get('CLAUDE_LANE')
+    // a lane's session reopened by hand from a shell without CLAUDE_LANE
+    const ranAs = role === undefined && e.isInteractive && linked === '' ? await laneSession($) : undefined
     if (!e.isInteractive) {
       // neither
+    } else if (ranAs !== undefined) {
+      adopted = ranAs
+      spend = await readSpend($, ranAs)
+      await holdByHand($)
+      $.ui.status(`${laneName(ranAs)} reopened by hand: no lane now, its requests still count as the ${ranAs} lane's`)
     } else if (role === 'mid' || role === 'low') {
       // a lane in a project with a link under .claude/lanes neither writes its state nor runs a queue
       if (linked === '') {
@@ -1857,6 +1975,7 @@ export const register: Register = (on, options) => {
 
   on('turn.start', async ($, e, next) => {
     await markBusy($, e.text)
+    if (adopted !== undefined) await holdByHand($)
 
     return next(e)
   })
@@ -1879,6 +1998,8 @@ export const register: Register = (on, options) => {
     // a /clear or a resume in a lane goes on under a new session id: a lane that forgot, not one that closed
     if (e.reason === 'clear' || e.reason === 'resume') await markCleared($)
     else await markOff($)
+    // a lane's session reopened by hand that closes lets go of the lane's name
+    if (adopted !== undefined && e.reason !== 'clear' && e.reason !== 'resume') await $.fs.write(byHandFile(adopted), '{}').catch(() => undefined)
     if (isMain) {
       // what main's tool calls added since its last model request
       await saveSpend($, 'main')

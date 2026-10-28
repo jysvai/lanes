@@ -2,7 +2,7 @@
 
 # What lanes actually saves
 
-**Measured on four projects, on one day, four days and five more across several, and the same tasks run on three models**
+**Measured on four projects, on one day and on thirteen days (three stretches) across several, and the same tasks run on three models**
 
 [한국어](dollar-savings.md) · **English** · [Back to the README](../README.en.md)
 
@@ -31,7 +31,8 @@
 - **Saved in main's context (estimate)** is what main's later requests would have read again had main read the lanes' material itself. It is an estimate, not a measurement, so it isn't in the saving. How it's worked out is [below](#saved-in-mains-context-estimate).
 - **A whole day looks much the same.** Over Oct 14, four projects (one of them project 1's web game) went from $197.79 to $152.73, 23% saved. It's [below](#one-working-day-oct-14).
 - **So do four days.** Over Oct 15–18, five projects went from $724.55 to $601.64, 17% saved (56% on the lanes' share alone): 23% on the web game, which handed off the most, and 9–12% on the other four. It's [below](#four-days-of-real-use-oct-1518).
-- **Hand work to Opus subagents and the saving shrinks.** Over the next stretch, Oct 18 evening to Oct 23, six projects went from $1,928.91 to $1,804.92, only 6% saved: over half the spend (≈$977.53) was subagents main started with the Agent tool on one project, all but two of them on Opus. From 0.3.12 `/lane usage` shows that share on its own line. The two stretches together, nine days, went from $2,653.46 to $2,406.56, 9%. It's [below](#five-more-days-oct-18-evening-to-oct-23).
+- **Hand work to Opus subagents and the saving shrinks.** Over the next stretch, Oct 18 evening to Oct 23, six projects went from $1,928.91 to $1,804.92, only 6% saved: over half the spend (≈$977.53) was subagents main started with the Agent tool on one project, all but two of them on Opus. From 0.3.12 `/lane usage` shows that share on its own line. It's [below](#five-more-days-oct-18-evening-to-oct-23).
+- **Hand off more and it climbs back.** Over Oct 24–27, seven projects went from $1,432.64 to $1,118.64, 22% saved. The lanes took 229 tasks in four days, over three times the 75 of the five days before, and main ran 34 lookups and commands itself per lane task, down from 82. The thirteen days of Oct 15–27 together went from $4,086.10 to $3,525.20, 14%. It's [below](#four-more-days-oct-2427).
 - **On a subscription (Pro, Max)** the bill doesn't change, but usage limits are drawn down by model price too, so the same limit stretches about 1.3× further.
 
 ## Project 1 · a web game
@@ -225,6 +226,35 @@ Then from Oct 18, 5 pm, to Oct 24, midnight: the six projects worked on with the
 - **What 0.3.12 changes:** `/lane usage` shows main's subagents on a line of their own (requests, cost, and the part on main's model), and when over a dollar of it ran on main's model, adds that their 5-minute cache makes a long wait write their context again and that long side work is cheaper in the mid lane (1/2 per token). Main's instructions now say that a subagent runs on main's model unless given another and keeps its cache for 5 minutes, so one that writes or builds gets the model the work needs, and long side work goes to a lane. Subagents' cache writes are priced at the 5-minute rate (1.25× input). Before, the 1-hour rate put the 3D web service's main $116.70 too high over this stretch; the table takes that off.
 - **No task was lost from a lane ledger.** Of the 75 lane tasks, 5 ended STOPPED ($3.61), three of them the same measurement run while the user was playing a game. Regulation research's T3 stays "open" because its lane session ended mid-task; it closes as STOPPED when that lane next opens (0.3.11). One task sent at 17:46 on the 18th (this repo's T27), from sessions opened before 0.3.11 was written, went to a lane held at its exit prompt and was lost: the very case 0.3.11 fixes.
 - **Checked:** only the 3D web service's main comes out lower from the session logs. Requests and input and cache tokens agree, but 7,338 of its subagents' 9,753 requests have no final usage in their logs, so their output tokens go missing; the table uses what the lanes counted request by request. The other five projects and the lanes agree on requests and cost. `session-stats.mjs` is fixed this time: it reads a log too big for one string in pieces, prices subagents' cache writes at the 5-minute rate, and counts a subagent's requests after its main session ended (71 here).
+
+## Four more days: Oct 24–27
+
+From the day 0.3.12 came out to Oct 28, midnight: the seven projects worked on with the lanes on this PC. The web game was back; the 3D web service, blog automation and work automation were there in the five days before; three are new. Counted the same way.
+
+<p align="center"><img src="en/period3.svg" width="880" alt="Oct 24-27, four days, seven projects: all on Opus 1432.64 dollars, with lanes 1118.64 dollars, 314.00 dollars (22%) saved. A local coding-agent CLI 2.59 dollars either way; an Excel converter 23.59 to 20.07 dollars, 15%; blog automation 52.92 to 52.13 dollars, 1%; a trading bot 134.78 to 114.04 dollars, 15%; the web game (project 1) 150.04 to 98.88 dollars, 34%; work automation 191.63 to 162.99 dollars, 15%; a 3D web service 877.09 to 667.94 dollars, 24%"></p>
+
+| | A local coding-agent CLI | An Excel converter | Blog automation | A trading bot | The web game (project 1) | Work automation | A 3D web service | All seven |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| main (Opus 5.5) | $2.59 · 41 | $16.55 · 93 | $51.34 · 469 | $97.37 · 885 | $55.37 · 688 | $140.99 · 1,268 | $489.72 · 5,598 | $853.93 |
+| Of it, main's subagents (estimate) | — | — | — | ≈$0.64 | — | — | ≈$23.11 | ≈$23.75 |
+| mid lane (Sonnet 5.5) | — | $3.52 · 46 | $0.79 · 26 | $16.43 · 294 | $42.91 · 1,480 | $21.48 · 537 | $175.86 · 4,381 | $261.00 |
+| low lane (Haiku 5.5) | — | — | — | $0.24 · 33 | $0.60 · 94 | $0.52 · 115 | $2.36 · 449 | $3.71 |
+| All on Opus | $2.59 | $23.59 | $52.92 | $134.78 | $150.04 | $191.63 | $877.09 | $1,432.64 |
+| With lanes | $2.59 | $20.07 | $52.13 | $114.04 | $98.88 | $162.99 | $667.94 | $1,118.64 |
+| **Saved** | $0.00 | **−$3.52 (15%)** | **−$0.79 (1%)** | **−$20.74 (15%)** | **−$51.16 (34%)** | **−$28.64 (15%)** | **−$209.15 (24%)** | **−$314.00 (22%)** |
+| On the lanes' share alone | — | 50% | 50% | 54% | 54% | 57% | 54% | 54% |
+| Lane tasks | 0 | 3 | 1 | 19 | 29 | 32 | 145 | 229 |
+| Time at work, main / lanes | 12 / 0 min | 45 / 23 min | 154 / 9 min | 383 / 136 min | 204 / 455 min | 503 / 219 min | 1,723 / 1,541 min | 3,024 / 2,383 min |
+| Lookups and commands main ran itself | 35 | 77 | 405 | 663 | 487 | 1,180 | 5,001 | 7,848 |
+| Saved in main's context (estimate) | ≈$0.00 | ≈$0.77 | ≈$0.65 | ≈$5.18 | ≈$19.09 | ≈$13.80 | ≈$87.26 | ≈$126.75 |
+| Together with that | 0% | ≈18% | ≈3% | ≈19% | ≈47% | ≈22% | ≈34% | ≈31% |
+
+- **The saving rose to 22%.** Not from prices: on the lanes' share alone it is 54%, as before (52%). What changed is how much went to the lanes: 229 tasks in four days, over three times the 75 of the five days before, and main ran 34 lookups and commands itself per lane task, down from 82. The lanes' work rose from 12% to 40% of "All on Opus".
+- **The same 3D web service went from 6% to 24%.** It gave the lanes 145 tasks (50 in the five days before), and the mid lane made 4,381 requests; the lanes worked almost as long (1,541 min) as main (1,723 min). Main's subagents cost ≈$23, down from ≈$978.
+- **Whether 0.3.12 made the subagents fewer can't be told yet.** The 3D web service's seven subagents came from a session opened before 0.3.12, and for three of them (screen reviews) main chose Opus on purpose. The only subagent started in a session with 0.3.12's note was the trading bot's one, on Sonnet. Subagent costs here are from the session logs, which miss some output, so they come out a little low.
+- **The web game saved 34%.** The lanes worked 455 minutes to main's 204: the project that handed off the most saved the most again.
+- **No task was lost from a lane ledger.** Of 229 tasks, 11 ended STOPPED, and the Excel converter's T3 stays "open" in its ledger (it closes as STOPPED when that lane next opens).
+- **Checked:** for the lanes, the lanes' logs and the session logs agree on requests and cost in every project. The 3D web service's subagents on the 24th and 25th were logged by pre-0.3.12 code, so they are priced again at the 5-minute rate (−$4.47). On the 27th, about 59 requests ($1.97) of a 3D web service low-lane session were logged as main's. The total is the same, only that share moved from low to main, so the table keeps it as logged. The lane's window had closed and was reopened from another terminal (`--resume`) without the lane's mark; from 0.3.14 such a session's requests count as that lane's. Two main sessions in one project writing over each other's log is fixed in 0.3.14 too.
 
 ## Saved in main's context (estimate)
 

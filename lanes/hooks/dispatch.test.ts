@@ -152,6 +152,29 @@ test('a task for a lane that is closing goes to a fresh lane, not into a session
   expect(JSON.parse(files['C:/Users/me/.claude/lanes/demo-55c5/low.queue.json'] ?? '[]')[0].startsWith('[T1] count the tests')).toBe(true)
 })
 
+test("a lane's session reopened by hand holds its name: a task waits for it to close, and it is never closed from here", async ($, on) => {
+  const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
+  const files: Record<string, string> = {
+    'C:/work/demo/.claude/lanes/state/low.json': closing,
+    'C:/Users/me/.claude/lanes/demo-55c5/low.by-hand.json': JSON.stringify({ sessionId: 'lane-1' }),
+  }
+  const clock = ground(on, sent, files)
+  await $.session.start({ cwd: 'C:/work/demo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ command: 'lane', args: 'low count the tests' } as never)
+
+  expect(ran.text).toContain('T1 queued for demo-55c5-low: that lane\'s own session was reopened by hand')
+  expect(sent.to).toBeUndefined()
+  const stopped = await $.command.run({ command: 'lane', args: 'stop low' } as never)
+  expect(stopped.text).toContain('demo-55c5-low: reopened by hand, so not closed from here')
+  await clock.advance(10_000)
+  expect(sent.runs).toEqual([])
+
+  // that session closes: a fresh lane opens for the task that waited
+  delete files['C:/Users/me/.claude/sessions/11.json']
+  await clock.advance(10_000)
+  expect(sent.runs?.map(r => (r.includes("'start'") ? 'start' : '?'))).toEqual(['start'])
+})
+
 test("a new lane session under the name, still starting, isn't taken for the closing one", async ($, on) => {
   const sent: { to?: unknown; text?: string; runs?: string[] } = { runs: [] }
   const files: Record<string, string> = { 'C:/work/demo/.claude/lanes/state/low.json': closing.replace('lane-1', 'lane-0') }
