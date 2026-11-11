@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1878" width="880" height="1878" role="img" aria-label="10월 28일–11월 10일 열나흘, 열네 프로젝트에서 레인이 아낀 비용: 웹 게임 (프로젝트 1) $19.81 → $16.80; 검색 클릭 분석 도구 $39.92 → $28.86; 업무 자동화 $56.46 → $51.89; 트레이딩 봇 $104.56 → $77.46; 로컬 모델 패키징 $127.08 → $83.41; 스포츠 데이터 웹서비스 $138.39 → $124.53; 미디어 믹스 시뮬레이터 $155.66 → $131.29; 로컬 코딩 에이전트 CLI $187.56 → $142.74; 리버스 엔지니어링 도구 $199.63 → $162.84; 영상 콘텐츠 제작 $234.33 → $221.69; 3D 웹 서비스 $385.19 → $299.28; 온라인 게임 $389.11 → $351.95; 숏폼 콘텐츠 제작 $702.07 → $497.41; 블로그 자동화 $1,209.65 → $1,034.57; 열나흘 $724.71 절약 · 18%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1878" width="880" height="1878" role="img" aria-label="10월 28일–11월 11일 13시 열나흘, 열네 프로젝트에서 레인이 아낀 비용: 웹 게임 (프로젝트 1) $22.42 → $19.41; 검색 클릭 분석 도구 $39.92 → $28.86; 업무 자동화 $56.46 → $51.89; 트레이딩 봇 $104.56 → $77.46; 로컬 모델 패키징 $127.08 → $83.41; 스포츠 데이터 웹서비스 $138.39 → $124.53; 미디어 믹스 시뮬레이터 $155.66 → $131.29; 로컬 코딩 에이전트 CLI $187.56 → $142.74; 리버스 엔지니어링 도구 $199.63 → $162.84; 영상 콘텐츠 제작 $234.33 → $221.69; 3D 웹 서비스 $385.19 → $299.28; 온라인 게임 $411.28 → $372.90; 숏폼 콘텐츠 제작 $702.07 → $497.41; 블로그 자동화 $1,220.48 → $1,044.96; 열나흘 $726.36 절약 · 18%">
   <style>
     .bg { fill: #f6f8fa; }
     .card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
@@ -43,25 +43,25 @@
     <clipPath id="grow14"><rect x="0" y="1738" width="880" height="70"><animate attributeName="width" values="200;200;880" keyTimes="0;0.75;1" dur="4.35s" fill="freeze"/></rect></clipPath>
   </defs>
   <rect class="bg" width="880" height="1878" rx="14"/>
-  <text class="h" x="24" y="38">10월 28일–11월 10일 열나흘, 열네 프로젝트에서 레인이 아낀 비용</text>
+  <text class="h" x="24" y="38">10월 28일–11월 11일 13시 열나흘, 열네 프로젝트에서 레인이 아낀 비용</text>
   <text class="s" x="24" y="60">실측 · 세션 기록의 요청마다 모델별 Claude API 정가로 계산 · 회색은 레인 몫을 Opus가 했을 때</text>
-  <text class="hero" x="24" y="104">열나흘 $724.71 절약 · 18%</text>
-  <text class="s" x="24" y="128">전부 Opus였다면 $3,949.41 → lanes로 $3,224.70 · 레인 작업 451건 · 레인 몫만 보면 58%</text>
+  <text class="hero" x="24" y="104">열나흘 $726.36 절약 · 18%</text>
+  <text class="s" x="24" y="128">전부 Opus였다면 $3,985.02 → lanes로 $3,258.66 · 레인 작업 453건 · 레인 몫만 보면 58%</text>
   <line class="grid" x1="24" x2="856" y1="146" y2="146"/>
   <text class="t" x="24" y="168">웹 게임 (프로젝트 1)</text>
-  <text class="s" x="856" y="168" text-anchor="end">main 45분 · 레인 12분 · 레인 작업 2건</text>
+  <text class="s" x="856" y="168" text-anchor="end">main 59분 · 레인 12분 · 레인 작업 2건</text>
   <text class="s" x="24" y="201">전부 Opus였다면</text>
-  <text class="mb" x="212" y="201" text-anchor="end">$19.81</text>
+  <text class="mb" x="212" y="201" text-anchor="end">$22.42</text>
   <text class="s" x="24" y="237">lanes로</text>
-  <text class="mb" x="212" y="237" text-anchor="end">$16.80</text>
+  <text class="mb" x="212" y="237" text-anchor="end">$19.41</text>
   <g clip-path="url(#grow1)">
-    <rect class="main" x="230" y="182" width="6.4" height="28" rx="4"/>
-    <rect class="main" x="230" y="218" width="6.4" height="28" rx="4"/>
-    <rect class="opus" x="238.4" y="182" width="3.0" height="28" rx="4"/>
-    <rect class="mid" x="238.4" y="218" width="3.0" height="28" rx="4"/>
-    <rect class="low" x="243.4" y="218" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="240.2" y="219" width="2.0" height="26" rx="4"/>
-    <text class="t" x="251.4" y="237">−$3.02 · 15%</text>
+    <rect class="main" x="230" y="182" width="7.4" height="28" rx="4"/>
+    <rect class="main" x="230" y="218" width="7.4" height="28" rx="4"/>
+    <rect class="opus" x="239.4" y="182" width="3.0" height="28" rx="4"/>
+    <rect class="mid" x="239.4" y="218" width="3.0" height="28" rx="4"/>
+    <rect class="low" x="244.4" y="218" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="241.3" y="219" width="2.0" height="26" rx="4"/>
+    <text class="t" x="257.4" y="237">−$3.02 · 13%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="266" y2="266"/>
   <text class="t" x="24" y="288">검색 클릭 분석 도구</text>
@@ -71,13 +71,13 @@
   <text class="s" x="24" y="357">lanes로</text>
   <text class="mb" x="212" y="357" text-anchor="end">$28.86</text>
   <g clip-path="url(#grow2)">
-    <rect class="main" x="230" y="302" width="9.8" height="28" rx="4"/>
-    <rect class="main" x="230" y="338" width="9.8" height="28" rx="4"/>
-    <rect class="opus" x="241.8" y="302" width="5.3" height="28" rx="4"/>
-    <rect class="mid" x="241.8" y="338" width="3.0" height="28" rx="4"/>
-    <rect class="low" x="246.8" y="338" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="245.4" y="339" width="2.0" height="26" rx="4"/>
-    <text class="t" x="257.2" y="357">−$11.06 · 28%</text>
+    <rect class="main" x="230" y="302" width="9.7" height="28" rx="4"/>
+    <rect class="main" x="230" y="338" width="9.7" height="28" rx="4"/>
+    <rect class="opus" x="241.7" y="302" width="5.3" height="28" rx="4"/>
+    <rect class="mid" x="241.7" y="338" width="3.0" height="28" rx="4"/>
+    <rect class="low" x="246.7" y="338" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="245.3" y="339" width="2.0" height="26" rx="4"/>
+    <text class="t" x="257.0" y="357">−$11.06 · 28%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="386" y2="386"/>
   <text class="t" x="24" y="408">업무 자동화</text>
@@ -87,12 +87,12 @@
   <text class="s" x="24" y="477">lanes로</text>
   <text class="mb" x="212" y="477" text-anchor="end">$51.89</text>
   <g clip-path="url(#grow3)">
-    <rect class="main" x="230" y="422" width="20.3" height="28" rx="4"/>
-    <rect class="main" x="230" y="458" width="20.3" height="28" rx="4"/>
-    <rect class="opus" x="252.3" y="422" width="3.0" height="28" rx="4"/>
-    <rect class="mid" x="252.3" y="458" width="3.0" height="28" rx="4"/>
-    <rect class="save" x="255.3" y="459" width="2.0" height="26" rx="4"/>
-    <text class="t" x="265.3" y="477">−$4.57 · 8%</text>
+    <rect class="main" x="230" y="422" width="20.2" height="28" rx="4"/>
+    <rect class="main" x="230" y="458" width="20.2" height="28" rx="4"/>
+    <rect class="opus" x="252.2" y="422" width="3.0" height="28" rx="4"/>
+    <rect class="mid" x="252.2" y="458" width="3.0" height="28" rx="4"/>
+    <rect class="save" x="255.1" y="459" width="2.0" height="26" rx="4"/>
+    <text class="t" x="270.2" y="477">−$4.57 · 8%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="506" y2="506"/>
   <text class="t" x="24" y="528">트레이딩 봇</text>
@@ -102,13 +102,13 @@
   <text class="s" x="24" y="597">lanes로</text>
   <text class="mb" x="212" y="597" text-anchor="end">$77.46</text>
   <g clip-path="url(#grow4)">
-    <rect class="main" x="230" y="542" width="24.1" height="28" rx="4"/>
-    <rect class="main" x="230" y="578" width="24.1" height="28" rx="4"/>
-    <rect class="opus" x="256.1" y="542" width="18.8" height="28" rx="4"/>
-    <rect class="mid" x="256.1" y="578" width="7.0" height="28" rx="4"/>
-    <rect class="low" x="265.2" y="578" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="266.3" y="579" width="8.7" height="26" rx="4"/>
-    <text class="t" x="284.9" y="597">−$27.11 · 26%</text>
+    <rect class="main" x="230" y="542" width="23.9" height="28" rx="4"/>
+    <rect class="main" x="230" y="578" width="23.9" height="28" rx="4"/>
+    <rect class="opus" x="255.9" y="542" width="18.6" height="28" rx="4"/>
+    <rect class="mid" x="255.9" y="578" width="6.9" height="28" rx="4"/>
+    <rect class="low" x="264.9" y="578" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="266.0" y="579" width="8.5" height="26" rx="4"/>
+    <text class="t" x="284.5" y="597">−$27.11 · 26%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="626" y2="626"/>
   <text class="t" x="24" y="648">로컬 모델 패키징</text>
@@ -118,15 +118,15 @@
   <text class="s" x="24" y="717">lanes로</text>
   <text class="mb" x="212" y="717" text-anchor="end">$83.41</text>
   <g clip-path="url(#grow5)">
-    <rect class="main" x="230" y="662" width="28.6" height="28" rx="4"/>
-    <rect class="sub" x="258.1" y="662" width="0.6" height="28" rx="4"/>
-    <rect class="main" x="230" y="698" width="28.6" height="28" rx="4"/>
-    <rect class="sub" x="258.1" y="698" width="0.6" height="28" rx="4"/>
-    <rect class="opus" x="260.6" y="662" width="24.0" height="28" rx="4"/>
-    <rect class="mid" x="260.6" y="698" width="5.1" height="28" rx="4"/>
-    <rect class="low" x="267.8" y="698" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="268.9" y="699" width="15.8" height="26" rx="4"/>
-    <text class="t" x="294.6" y="717">−$43.67 · 34%</text>
+    <rect class="main" x="230" y="662" width="28.4" height="28" rx="4"/>
+    <rect class="sub" x="257.8" y="662" width="0.6" height="28" rx="4"/>
+    <rect class="main" x="230" y="698" width="28.4" height="28" rx="4"/>
+    <rect class="sub" x="257.8" y="698" width="0.6" height="28" rx="4"/>
+    <rect class="opus" x="260.4" y="662" width="23.7" height="28" rx="4"/>
+    <rect class="mid" x="260.4" y="698" width="5.0" height="28" rx="4"/>
+    <rect class="low" x="267.4" y="698" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="268.5" y="699" width="15.6" height="26" rx="4"/>
+    <text class="t" x="294.1" y="717">−$43.67 · 34%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="746" y2="746"/>
   <text class="t" x="24" y="768">스포츠 데이터 웹서비스</text>
@@ -136,13 +136,13 @@
   <text class="s" x="24" y="837">lanes로</text>
   <text class="mb" x="212" y="837" text-anchor="end">$124.53</text>
   <g clip-path="url(#grow6)">
-    <rect class="main" x="230" y="782" width="48.3" height="28" rx="4"/>
-    <rect class="main" x="230" y="818" width="48.3" height="28" rx="4"/>
-    <rect class="opus" x="280.3" y="782" width="9.2" height="28" rx="4"/>
-    <rect class="mid" x="280.3" y="818" width="3.2" height="28" rx="4"/>
-    <rect class="low" x="285.5" y="818" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="286.5" y="819" width="3.0" height="26" rx="4"/>
-    <text class="t" x="299.5" y="837">−$13.86 · 10%</text>
+    <rect class="main" x="230" y="782" width="47.9" height="28" rx="4"/>
+    <rect class="main" x="230" y="818" width="47.9" height="28" rx="4"/>
+    <rect class="opus" x="279.9" y="782" width="9.1" height="28" rx="4"/>
+    <rect class="mid" x="279.9" y="818" width="3.1" height="28" rx="4"/>
+    <rect class="low" x="285.0" y="818" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="286.1" y="819" width="2.9" height="26" rx="4"/>
+    <text class="t" x="299.0" y="837">−$13.86 · 10%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="866" y2="866"/>
   <text class="t" x="24" y="888">미디어 믹스 시뮬레이터</text>
@@ -152,15 +152,15 @@
   <text class="s" x="24" y="957">lanes로</text>
   <text class="mb" x="212" y="957" text-anchor="end">$131.29</text>
   <g clip-path="url(#grow7)">
-    <rect class="main" x="230" y="902" width="49.5" height="28" rx="4"/>
-    <rect class="sub" x="272.8" y="902" width="6.8" height="28" rx="4"/>
-    <rect class="main" x="230" y="938" width="49.5" height="28" rx="4"/>
-    <rect class="sub" x="272.8" y="938" width="6.8" height="28" rx="4"/>
-    <rect class="opus" x="281.5" y="902" width="15.4" height="28" rx="4"/>
-    <rect class="mid" x="281.5" y="938" width="4.6" height="28" rx="4"/>
-    <rect class="low" x="288.1" y="938" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="289.4" y="939" width="7.5" height="26" rx="4"/>
-    <text class="t" x="306.9" y="957">−$24.37 · 16%</text>
+    <rect class="main" x="230" y="902" width="49.1" height="28" rx="4"/>
+    <rect class="sub" x="272.4" y="902" width="6.7" height="28" rx="4"/>
+    <rect class="main" x="230" y="938" width="49.1" height="28" rx="4"/>
+    <rect class="sub" x="272.4" y="938" width="6.7" height="28" rx="4"/>
+    <rect class="opus" x="281.1" y="902" width="15.2" height="28" rx="4"/>
+    <rect class="mid" x="281.1" y="938" width="4.5" height="28" rx="4"/>
+    <rect class="low" x="287.6" y="938" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="288.9" y="939" width="7.4" height="26" rx="4"/>
+    <text class="t" x="306.3" y="957">−$24.37 · 16%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="986" y2="986"/>
   <text class="t" x="24" y="1008">로컬 코딩 에이전트 CLI</text>
@@ -170,15 +170,15 @@
   <text class="s" x="24" y="1077">lanes로</text>
   <text class="mb" x="212" y="1077" text-anchor="end">$142.74</text>
   <g clip-path="url(#grow8)">
-    <rect class="main" x="230" y="1022" width="51.1" height="28" rx="4"/>
-    <rect class="sub" x="274.5" y="1022" width="6.6" height="28" rx="4"/>
-    <rect class="main" x="230" y="1058" width="51.1" height="28" rx="4"/>
-    <rect class="sub" x="274.5" y="1058" width="6.6" height="28" rx="4"/>
-    <rect class="opus" x="283.1" y="1022" width="27.5" height="28" rx="4"/>
-    <rect class="mid" x="283.1" y="1058" width="7.8" height="28" rx="4"/>
-    <rect class="low" x="292.9" y="1058" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="294.4" y="1059" width="16.3" height="26" rx="4"/>
-    <text class="t" x="320.6" y="1077">−$44.81 · 24%</text>
+    <rect class="main" x="230" y="1022" width="50.7" height="28" rx="4"/>
+    <rect class="sub" x="274.1" y="1022" width="6.5" height="28" rx="4"/>
+    <rect class="main" x="230" y="1058" width="50.7" height="28" rx="4"/>
+    <rect class="sub" x="274.1" y="1058" width="6.5" height="28" rx="4"/>
+    <rect class="opus" x="282.7" y="1022" width="27.3" height="28" rx="4"/>
+    <rect class="mid" x="282.7" y="1058" width="7.7" height="28" rx="4"/>
+    <rect class="low" x="292.4" y="1058" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="293.8" y="1059" width="16.1" height="26" rx="4"/>
+    <text class="t" x="319.9" y="1077">−$44.81 · 24%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1106" y2="1106"/>
   <text class="t" x="24" y="1128">리버스 엔지니어링 도구</text>
@@ -188,13 +188,13 @@
   <text class="s" x="24" y="1197">lanes로</text>
   <text class="mb" x="212" y="1197" text-anchor="end">$162.84</text>
   <g clip-path="url(#grow9)">
-    <rect class="main" x="230" y="1142" width="55.1" height="28" rx="4"/>
-    <rect class="main" x="230" y="1178" width="55.1" height="28" rx="4"/>
-    <rect class="opus" x="287.1" y="1142" width="28.7" height="28" rx="4"/>
-    <rect class="mid" x="287.1" y="1178" width="12.8" height="28" rx="4"/>
-    <rect class="low" x="301.9" y="1178" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="303.0" y="1179" width="12.8" height="26" rx="4"/>
-    <text class="t" x="325.8" y="1197">−$36.79 · 18%</text>
+    <rect class="main" x="230" y="1142" width="54.6" height="28" rx="4"/>
+    <rect class="main" x="230" y="1178" width="54.6" height="28" rx="4"/>
+    <rect class="opus" x="286.6" y="1142" width="28.4" height="28" rx="4"/>
+    <rect class="mid" x="286.6" y="1178" width="12.7" height="28" rx="4"/>
+    <rect class="low" x="301.3" y="1178" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="302.4" y="1179" width="12.7" height="26" rx="4"/>
+    <text class="t" x="325.1" y="1197">−$36.79 · 18%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1226" y2="1226"/>
   <text class="t" x="24" y="1248">영상 콘텐츠 제작</text>
@@ -204,13 +204,13 @@
   <text class="s" x="24" y="1317">lanes로</text>
   <text class="mb" x="212" y="1317" text-anchor="end">$221.69</text>
   <g clip-path="url(#grow10)">
-    <rect class="main" x="230" y="1262" width="91.5" height="28" rx="4"/>
-    <rect class="main" x="230" y="1298" width="91.5" height="28" rx="4"/>
-    <rect class="opus" x="323.5" y="1262" width="7.3" height="28" rx="4"/>
-    <rect class="mid" x="323.5" y="1298" width="3.0" height="28" rx="4"/>
-    <rect class="low" x="328.5" y="1298" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="328.3" y="1299" width="2.4" height="26" rx="4"/>
-    <text class="t" x="340.7" y="1317">−$12.64 · 5%</text>
+    <rect class="main" x="230" y="1262" width="90.7" height="28" rx="4"/>
+    <rect class="main" x="230" y="1298" width="90.7" height="28" rx="4"/>
+    <rect class="opus" x="322.7" y="1262" width="7.2" height="28" rx="4"/>
+    <rect class="mid" x="322.7" y="1298" width="3.0" height="28" rx="4"/>
+    <rect class="low" x="327.7" y="1298" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="327.5" y="1299" width="2.4" height="26" rx="4"/>
+    <text class="t" x="339.8" y="1317">−$12.64 · 5%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1346" y2="1346"/>
   <text class="t" x="24" y="1368">3D 웹 서비스</text>
@@ -220,33 +220,33 @@
   <text class="s" x="24" y="1437">lanes로</text>
   <text class="mb" x="212" y="1437" text-anchor="end">$299.28</text>
   <g clip-path="url(#grow11)">
-    <rect class="main" x="230" y="1382" width="96.2" height="28" rx="4"/>
-    <rect class="main" x="230" y="1418" width="96.2" height="28" rx="4"/>
-    <rect class="opus" x="328.2" y="1382" width="67.4" height="28" rx="4"/>
-    <rect class="mid" x="328.2" y="1418" width="30.2" height="28" rx="4"/>
-    <rect class="low" x="360.3" y="1418" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="361.7" y="1419" width="33.9" height="26" rx="4"/>
-    <text class="t" x="405.6" y="1437">−$85.91 · 22%</text>
+    <rect class="main" x="230" y="1382" width="95.3" height="28" rx="4"/>
+    <rect class="main" x="230" y="1418" width="95.3" height="28" rx="4"/>
+    <rect class="opus" x="327.3" y="1382" width="66.8" height="28" rx="4"/>
+    <rect class="mid" x="327.3" y="1418" width="29.9" height="28" rx="4"/>
+    <rect class="low" x="359.2" y="1418" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="360.5" y="1419" width="33.6" height="26" rx="4"/>
+    <text class="t" x="404.1" y="1437">−$85.91 · 22%</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1466" y2="1466"/>
   <text class="t" x="24" y="1488">온라인 게임</text>
-  <text class="s" x="856" y="1488" text-anchor="end">main 329분 · 레인 192분 · 레인 작업 26건</text>
+  <text class="s" x="856" y="1488" text-anchor="end">main 409분 · 레인 202분 · 레인 작업 27건</text>
   <text class="s" x="24" y="1521">전부 Opus였다면</text>
-  <text class="mb" x="212" y="1521" text-anchor="end">$389.11</text>
+  <text class="mb" x="212" y="1521" text-anchor="end">$411.28</text>
   <text class="s" x="24" y="1557">lanes로</text>
-  <text class="mb" x="212" y="1557" text-anchor="end">$351.95</text>
+  <text class="mb" x="212" y="1557" text-anchor="end">$372.90</text>
   <g clip-path="url(#grow12)">
-    <rect class="main" x="230" y="1502" width="138.9" height="28" rx="4"/>
-    <rect class="sub" x="368.5" y="1502" width="0.4" height="28" rx="4"/>
-    <rect class="main" x="230" y="1538" width="138.9" height="28" rx="4"/>
-    <rect class="sub" x="368.5" y="1538" width="0.4" height="28" rx="4"/>
-    <rect class="opus" x="370.9" y="1502" width="26.3" height="28" rx="4"/>
-    <rect class="mid" x="370.9" y="1538" width="10.2" height="28" rx="4"/>
-    <rect class="low" x="383.1" y="1538" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="384.3" y="1539" width="13.0" height="26" rx="4"/>
-    <text class="t" x="407.3" y="1557">−$37.16 · 10%</text>
-    <text class="w" x="240" y="1521">main $322.24</text>
-    <text class="w" x="240" y="1557">main $322.24</text>
+    <rect class="main" x="230" y="1502" width="146.1" height="28" rx="4"/>
+    <rect class="sub" x="375.7" y="1502" width="0.4" height="28" rx="4"/>
+    <rect class="main" x="230" y="1538" width="146.1" height="28" rx="4"/>
+    <rect class="sub" x="375.7" y="1538" width="0.4" height="28" rx="4"/>
+    <rect class="opus" x="378.1" y="1502" width="27.1" height="28" rx="4"/>
+    <rect class="mid" x="378.1" y="1538" width="10.6" height="28" rx="4"/>
+    <rect class="low" x="390.7" y="1538" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="391.9" y="1539" width="13.4" height="26" rx="4"/>
+    <text class="t" x="415.2" y="1557">−$38.38 · 9%</text>
+    <text class="w" x="240" y="1521">main $341.97</text>
+    <text class="w" x="240" y="1557">main $341.97</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1586" y2="1586"/>
   <text class="t" x="24" y="1608">숏폼 콘텐츠 제작</text>
@@ -256,37 +256,37 @@
   <text class="s" x="24" y="1677">lanes로</text>
   <text class="mb" x="212" y="1677" text-anchor="end">$497.41</text>
   <g clip-path="url(#grow13)">
-    <rect class="main" x="230" y="1622" width="145.1" height="28" rx="4"/>
-    <rect class="sub" x="374.6" y="1622" width="0.5" height="28" rx="4"/>
-    <rect class="main" x="230" y="1658" width="145.1" height="28" rx="4"/>
-    <rect class="sub" x="374.6" y="1658" width="0.5" height="28" rx="4"/>
-    <rect class="opus" x="377.1" y="1622" width="154.7" height="28" rx="4"/>
-    <rect class="mid" x="377.1" y="1658" width="65.0" height="28" rx="4"/>
-    <rect class="low" x="444.0" y="1658" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="446.8" y="1659" width="85.0" height="26" rx="4"/>
-    <text class="t" x="541.8" y="1677">−$204.66 · 29%</text>
+    <rect class="main" x="230" y="1622" width="143.8" height="28" rx="4"/>
+    <rect class="sub" x="373.3" y="1622" width="0.5" height="28" rx="4"/>
+    <rect class="main" x="230" y="1658" width="143.8" height="28" rx="4"/>
+    <rect class="sub" x="373.3" y="1658" width="0.5" height="28" rx="4"/>
+    <rect class="opus" x="375.8" y="1622" width="153.4" height="28" rx="4"/>
+    <rect class="mid" x="375.8" y="1658" width="64.4" height="28" rx="4"/>
+    <rect class="low" x="442.1" y="1658" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="444.9" y="1659" width="84.2" height="26" rx="4"/>
+    <text class="t" x="539.1" y="1677">−$204.66 · 29%</text>
     <text class="w" x="240" y="1641">main $336.33</text>
     <text class="w" x="240" y="1677">main $336.33</text>
   </g>
   <line class="grid" x1="24" x2="856" y1="1706" y2="1706"/>
   <text class="t" x="24" y="1728">블로그 자동화</text>
-  <text class="s" x="856" y="1728" text-anchor="end">main 3,357분 · 레인 832분 · 레인 작업 119건</text>
+  <text class="s" x="856" y="1728" text-anchor="end">main 3,407분 · 레인 834분 · 레인 작업 120건</text>
   <text class="s" x="24" y="1761">전부 Opus였다면</text>
-  <text class="mb" x="212" y="1761" text-anchor="end">$1,209.65</text>
+  <text class="mb" x="212" y="1761" text-anchor="end">$1,220.48</text>
   <text class="s" x="24" y="1797">lanes로</text>
-  <text class="mb" x="212" y="1797" text-anchor="end">$1,034.57</text>
+  <text class="mb" x="212" y="1797" text-anchor="end">$1,044.96</text>
   <g clip-path="url(#grow14)">
-    <rect class="main" x="230" y="1742" width="396.7" height="28" rx="4"/>
-    <rect class="sub" x="577.9" y="1742" width="48.8" height="28" rx="4"/>
-    <rect class="main" x="230" y="1778" width="396.7" height="28" rx="4"/>
-    <rect class="sub" x="577.9" y="1778" width="48.8" height="28" rx="4"/>
-    <rect class="opus" x="628.7" y="1742" width="121.3" height="28" rx="4"/>
-    <rect class="mid" x="628.7" y="1778" width="45.2" height="28" rx="4"/>
-    <rect class="low" x="675.9" y="1778" width="3.0" height="28" rx="2"/>
-    <rect class="save" x="677.7" y="1779" width="72.3" height="26" rx="4"/>
-    <text class="t" x="760.0" y="1797">−$175.08 · 14%</text>
-    <text class="w" x="240" y="1761">main $809.25</text>
-    <text class="w" x="240" y="1797">main $809.25</text>
+    <rect class="main" x="230" y="1742" width="397.4" height="28" rx="4"/>
+    <rect class="sub" x="579.0" y="1742" width="48.4" height="28" rx="4"/>
+    <rect class="main" x="230" y="1778" width="397.4" height="28" rx="4"/>
+    <rect class="sub" x="579.0" y="1778" width="48.4" height="28" rx="4"/>
+    <rect class="opus" x="629.4" y="1742" width="120.6" height="28" rx="4"/>
+    <rect class="mid" x="629.4" y="1778" width="45.0" height="28" rx="4"/>
+    <rect class="low" x="676.3" y="1778" width="3.0" height="28" rx="2"/>
+    <rect class="save" x="678.2" y="1779" width="71.8" height="26" rx="4"/>
+    <text class="t" x="760.0" y="1797">−$175.52 · 14%</text>
+    <text class="w" x="240" y="1761">main $819.20</text>
+    <text class="w" x="240" y="1797">main $819.20</text>
   </g>
   <rect class="main" x="24" y="1823" width="12" height="12" rx="2"/><text class="s" x="42" y="1834">main · Opus 5.5</text>
   <rect class="sub" x="212" y="1823" width="12" height="12" rx="2"/><text class="s" x="230" y="1834">main의 서브에이전트</text>
