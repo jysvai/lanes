@@ -2240,6 +2240,8 @@ async function sendMate($: EngineInterface, t: Tier, agentId: string, body: stri
   }
   if (!delivered) {
     await mateGone($, t)
+    // if it still runs where the send couldn't reach it, it goes before another starts in its place
+    await $.tool.call({ tool: 'TaskStop', task_id: agentId } as never).catch(() => undefined)
 
     return false
   }
