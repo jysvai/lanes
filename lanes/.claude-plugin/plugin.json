@@ -1,7 +1,7 @@
 {
   "name": "lanes",
-  "version": "0.3.14",
-  "description": "On-demand lane sessions beside your main Claude Code session, from the first idea to release: a mid lane for side work that needs judgement (research, plans, reviews, tests), a low lane for search, scripts and crawling. Works on the Claude API, Amazon Bedrock, Vertex AI and Foundry. Status line, /lane, and tools the main model calls.",
+  "version": "0.4.0",
+  "description": "On-demand lanes beside your main Claude Code session, as sessions of their own or as teammates inside it, from the first idea to release: a mid lane for side work that needs judgement (research, plans, reviews, tests), a low lane for search, scripts and crawling. Works on the Claude API, Amazon Bedrock, Vertex AI and Foundry. Status line, /lane, and tools the main model calls.",
   "author": { "name": "jysvai", "email": "yunseok1312@gmail.com", "url": "https://github.com/jysvai" },
   "homepage": "https://github.com/jysvai/lanes",
   "repository": "https://github.com/jysvai/lanes",
@@ -68,9 +68,9 @@
     "launch": {
       "type": "string",
       "title": "How lanes open",
-      "description": "window: a terminal window per lane (Windows, macOS). background: claude --bg, watch with claude attach <name>.",
+      "description": "window: a terminal window per lane (Windows, macOS). background: claude --bg, watch with claude attach <name>. inline: each lane a teammate in your own session, in the agent panel under the prompt (no extra window or process); needs CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json env.",
       "default": "window",
-      "options": ["window", "background"]
+      "options": ["window", "background", "inline"]
     },
     "permission_mode": {
       "type": "string",
